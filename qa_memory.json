@@ -1,0 +1,22 @@
+[
+  {
+    "question": "my name is adarsh",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "what is my name",
+    "answer": "User's name is Adarsh Patidar."
+  },
+  {
+    "question": "what is function",
+    "answer": "A function is a first-class object created at runtime in Python, containing code object, default arguments, closure variables, and an execution frame when called."
+  },
+  {
+    "question": "my name is adarsh ",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "When will my certificate become available?",
+    "answer": "Within 3 business days after all eligibility criteria are confirmed."
+  }
+]
