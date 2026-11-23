@@ -1,0 +1,6 @@
+chroma_db/
+__pycache__/
+.ipynb_checkpoints/
+chat_history.json
+.DS_Store
+Untitled.ipynb
