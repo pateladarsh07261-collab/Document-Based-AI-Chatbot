@@ -1,5 +1,9 @@
 [
   {
+    "question": "my  brother name is ayush",
+    "answer": "User shared this information."
+  },
+  {
     "question": "my name is adarsh",
     "answer": "User shared this information."
   },
@@ -18,5 +22,61 @@
   {
     "question": "When will my certificate become available?",
     "answer": "Within 3 business days after all eligibility criteria are confirmed."
+  },
+  {
+    "question": "who is adarsh patidar",
+    "answer": "User's full name is Adarsh Patidar."
+  },
+  {
+    "question": "/clear",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "my name is adarsh patidar",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "what is python",
+    "answer": "Python is a high-level, interpreted programming language widely used for various purposes such as web development, scientific computing, data analysis, artificial intelligence, and more."
+  },
+  {
+    "question": "what is my  name",
+    "answer": "User's name is Adarsh Patidar."
+  },
+  {
+    "question": "what is my brother name",
+    "answer": "User's brother's name is Ayush."
+  },
+  {
+    "question": "what is my. name",
+    "answer": "User's name is Adarsh Patidar."
+  },
+  {
+    "question": "what is function in python",
+    "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called."
+  },
+  {
+    "question": "and its types",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "what is function type",
+    "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called."
+  },
+  {
+    "question": "and my brother name is ayush",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "i am from soyat",
+    "answer": "User shared this information."
+  },
+  {
+    "question": "my full details?",
+    "answer": "Adarsh Patidar is from Soyat."
+  },
+  {
+    "question": "python kya h",
+    "answer": "Python is a high-level programming language known for its readability and simplicity, making it popular for web development, data analysis, and scientific computing. It supports multiple programming paradigms, including procedural, object-oriented, and functional programming. Python is dynamically typed, meaning that variables can hold values of any type, and it has a garbage collector that automatically manages memory."
   }
 ]

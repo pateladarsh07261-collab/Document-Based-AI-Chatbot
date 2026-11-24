@@ -1,5 +1,6 @@
 import json
 import os
+import time  # [ADDED] Generation speed measure karne ke liye
 import tempfile
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -12,7 +13,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 
 st.set_page_config(page_title="Document-Based AI Assistant", page_icon="📚", layout="wide")
-st.title("📚 Document-Based AI Assistant (RAG)")
+st.title("📚 Document-Based AI Assistant (Advanced RAG)")  # [UPDATED] Title updated
 
 DB_DIR = "chroma_db"
 QA_MEMORY_FILE = "qa_memory.json"
@@ -20,18 +21,29 @@ HISTORY_FILE = "chat_history.json"
 
 
 @st.cache_resource
-def load_models():
-    embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    llm = ChatOllama(model="llama3.2", temperature=0)
-    return embedding, llm
+def load_embeddings():  # [UPDATED] Sirf embedding cache hogi, LLM sidebar sliders ke hisab se dynamic banega
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
-embedding, llm = load_models()
+def get_llm(model_name, temperature, top_p, max_tokens):  # [ADDED] Sidebar controls se dynamic LLM banata hai
+    return ChatOllama(
+        model=model_name,
+        temperature=temperature,
+        top_p=top_p,
+        num_predict=max_tokens,
+    )
+
+
+embedding = load_embeddings()
 
 
 def get_vectorstore():
     vs = Chroma(persist_directory=DB_DIR, embedding_function=embedding)
-    if vs._collection.count() == 0 and os.path.exists(QA_MEMORY_FILE):
+    if (
+        vs._collection.count() == 0
+        and os.path.exists(QA_MEMORY_FILE)
+        and os.path.getsize(QA_MEMORY_FILE) > 0  # [UPDATED] Empty JSON crash se bachne ke liye
+    ):
         with open(QA_MEMORY_FILE, "r", encoding="utf-8") as f:
             saved_qa = json.load(f)
             docs = [
@@ -51,7 +63,7 @@ vectorstore = get_vectorstore()
 
 def save_to_qa_memory(question, answer):
     qa_data = []
-    if os.path.exists(QA_MEMORY_FILE):
+    if os.path.exists(QA_MEMORY_FILE) and os.path.getsize(QA_MEMORY_FILE) > 0:  # [UPDATED] Safe empty check
         with open(QA_MEMORY_FILE, "r", encoding="utf-8") as f:
             qa_data = json.load(f)
 
@@ -67,7 +79,7 @@ def save_to_qa_memory(question, answer):
 
 
 def load_sessions():
-    if os.path.exists(HISTORY_FILE):
+    if os.path.exists(HISTORY_FILE) and os.path.getsize(HISTORY_FILE) > 0:  # [UPDATED] Safe empty check
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {"session_1": []}
@@ -84,8 +96,27 @@ if "current_session" not in st.session_state:
     st.session_state.current_session = "session_1"
 
 
-# Sidebar: PDF & TXT Upload + Chunking Controls + Sessions
+# Sidebar: LLM Controls + Advanced RAG + Upload Documents + Sessions
 with st.sidebar:
+    # --- [ADDED] 1. LLM Model & Hyperparameters Controls ---
+    st.header("🤖 LLM Settings")  # [ADDED]
+    selected_model = st.selectbox("Model", ["llama3.2:latest", "qwen2.5:3b", "qwen2.5:1.5b"])  # [ADDED] 2+ Ollama models switch
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.1, step=0.1)  # [ADDED] Creativity vs factual control
+    top_p = st.slider("Top-P", 0.1, 1.0, 0.9, step=0.1)  # [ADDED] Nucleus sampling
+    max_tokens = st.slider("Max Tokens", 128, 1024, 512, step=64)  # [ADDED] Max output tokens
+
+    st.divider()  # [ADDED]
+
+    # --- [ADDED] 2. Advanced RAG & Prompt Controls ---
+    st.header("⚙️ RAG & Prompt Mode")  # [ADDED]
+    rag_mode = st.radio("RAG Pipeline", ["Advanced RAG", "Basic RAG"], horizontal=True)  # [ADDED] Basic vs Advanced compare
+    top_k = st.slider("Top-K Chunks", 2, 8, 4)  # [ADDED] Dynamic Top-K retrieval
+    task_mode = st.selectbox("Task Mode", ["Question Answering", "Summarization", "Document Explanation"])  # [ADDED] 3 prompt modes
+    length_mode = st.radio("Response Length", ["Short", "Medium", "Detailed"], horizontal=True)  # [ADDED] Short/Medium/Detailed
+
+    st.divider()
+
+    # --- Existing Upload Documents Section ---
     st.header("📂 Upload Documents")
     uploaded_files = st.file_uploader(
         "Upload PDF ya TXT files", type=["pdf", "txt"], accept_multiple_files=True
@@ -167,26 +198,41 @@ with st.sidebar:
         st.rerun()
 
 
+llm = get_llm(selected_model, temperature, top_p, max_tokens)  # [ADDED] Active sidebar settings se LLM load
+
+
+# [UPDATED] Query Transformation + Query Expansion Prompt
 rewrite_prompt = ChatPromptTemplate.from_template(
-    "Given the chat history and a follow-up question, rewrite the follow-up "
-    "question into a clear, standalone search query. Do NOT answer it. "
-    "If it is already standalone or unrelated, return it as is.\n\n"
+    "Rewrite the user's question using Chat History so it is completely standalone, "
+    "and append 2 concise related keywords to improve document retrieval. "  # [ADDED] Query expansion
+    "Return ONLY the expanded query on one line.\n\n"
     "Chat History:\n{chat_history}\n\n"
     "Follow-up Question: {question}\n"
-    "Standalone Query:"
+    "Expanded Query:"
 )
 
-prompt = ChatPromptTemplate.from_template(
-    "You are a helpful, concise assistant. Follow these rules strictly:\n"
-    "1. First, check the Chat History for facts told by the user. If the answer is in Chat History, answer directly using that fact.\n"
-    "2. Second, check the Context (uploaded documents and saved Q&A). If the answer is in Context, answer using only that context.\n"
-    "3. ONLY if the answer is neither in Chat History nor in Context, reply: Not found in the notes.\n"
-    "4. Do NOT use outside world knowledge. Keep replies short (1-2 sentences).\n\n"
-    "Chat History:\n{chat_history}\n\n"
-    "Context:\n{context}\n\n"
-    "User Question: {question}\n"
-    "Assistant:"
-)
+# [ADDED] Task-Specific Prompts & Response Length Rules
+TASK_PROMPTS = {
+    "Question Answering": (
+        "1. First, check Chat History for facts told by the user. If found, answer directly.\n"
+        "2. Second, check Context. Answer strictly using only the provided Context.\n"
+        "3. ONLY if missing in both, reply: Not found in the notes. Do NOT use outside world knowledge."
+    ),
+    "Summarization": (
+        "Summarize the retrieved Context into clear, accurate key points using ONLY the provided text. "
+        "If Context has no relevant notes, reply: Not found in the notes."
+    ),
+    "Document Explanation": (
+        "Explain the concepts found in the retrieved Context in simple, clear terms with examples strictly from the text. "
+        "If Context has no relevant notes, reply: Not found in the notes."
+    ),
+}
+
+LENGTH_RULES = {
+    "Short": "Keep your reply strictly short (1-2 sentences).",
+    "Medium": "Provide a balanced 1-paragraph answer (3-5 sentences).",
+    "Detailed": "Provide a thorough, detailed explanation using structured bullet points.",
+}
 
 
 def format_history(session_id):
@@ -196,49 +242,60 @@ def format_history(session_id):
     return "\n".join(f"{m['role']}: {m['content']}" for m in history)
 
 
-def ask(question, session_id):
+def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG support ke saath
     sessions = st.session_state.sessions
     text = question.lower().strip()
     greetings = ("hi", "hello", "hey", "namaste", "good morning", "good evening")
     question_words = (
         "?", "what", "who", "where", "when", "why", "how",
         "kya", "kaun", "kab", "kaise", "kitna", "tell",
-        "explain", "define", "list", "give", "batao", "samjhao"
+        "explain", "define", "list", "give", "summarize", "summary", "batao", "samjhao"  # [UPDATED]
     )
 
     if text in greetings:
         answer = "Hello! How can I help you with your documents today?"
+        st.markdown(answer)
         sessions[session_id].extend([
             {"role": "user", "content": question},
             {"role": "assistant", "content": answer}
         ])
         save_sessions(sessions)
-        return answer
+        return
 
     is_question = any(word in text for word in question_words)
-    if not is_question:
+    if not is_question and task_mode == "Question Answering":  # [UPDATED]
         answer = "Got it!"
+        st.markdown(answer)
         save_to_qa_memory(question, "User shared this information.")
         sessions[session_id].extend([
             {"role": "user", "content": question},
             {"role": "assistant", "content": answer}
         ])
         save_sessions(sessions)
-        return answer
+        return
 
     try:
+        start_time = time.time()  # [ADDED] Speed timer
         chat_history = format_history(session_id)
 
-        if sessions[session_id] and len(question.split()) <= 5:
+        # [UPDATED] Advanced RAG: Query Expansion | Basic RAG: Raw Question
+        if rag_mode == "Advanced RAG":
             rewrite_chain = rewrite_prompt | llm | StrOutputParser()
             search_query = rewrite_chain.invoke(
                 {"chat_history": chat_history, "question": question}
             ).strip()
+            st.caption(f"🔎 **Expanded Query:** `{search_query}`")  # [ADDED] UI par expanded query dikhayega
         else:
             search_query = question
 
-        results = vectorstore.similarity_search_with_score(search_query, k=5)
-        relevant_docs = [doc for doc, score in results if score <= 1.5]
+        # [UPDATED] Advanced RAG: MMR (diverse chunks) | Basic RAG: Standard Similarity Search
+        if rag_mode == "Advanced RAG":
+            relevant_docs = vectorstore.max_marginal_relevance_search(
+                search_query, k=top_k, fetch_k=top_k * 3, lambda_mult=0.6
+            )
+        else:
+            results = vectorstore.similarity_search_with_score(search_query, k=top_k)
+            relevant_docs = [doc for doc, score in results if score <= 1.5]
 
         context = (
             "\n\n".join(d.page_content for d in relevant_docs)
@@ -246,33 +303,51 @@ def ask(question, session_id):
             else "No matching notes found."
         )
 
-        chain = prompt | llm | StrOutputParser()
-        answer = chain.invoke(
-            {"chat_history": chat_history, "context": context, "question": question}
+        # [ADDED] Dynamic Prompt combining Task Mode & Length Mode
+        dynamic_prompt = ChatPromptTemplate.from_template(
+            f"You are a helpful AI assistant. Follow these rules strictly:\n{TASK_PROMPTS[task_mode]}\n"
+            f"{LENGTH_RULES[length_mode]}\n\n"
+            "Chat History:\n{chat_history}\n\n"
+            "Context:\n{context}\n\n"
+            "User Request: {question}\n"
+            "Assistant:"
+        )
+
+        chain = dynamic_prompt | llm | StrOutputParser()
+
+        # [ADDED] Token-by-token live streaming in Streamlit UI
+        answer = st.write_stream(
+            chain.stream({"chat_history": chat_history, "context": context, "question": question})
         ).strip()
 
+        elapsed = round(time.time() - start_time, 2)  # [ADDED] Total response time
+
         if "not found in the notes" in answer.lower():
-            output = answer
+            footer = f"\n\n⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}`"
         else:
             save_to_qa_memory(question, answer)
             if relevant_docs:
                 best_doc = relevant_docs[0]
                 file_name = best_doc.metadata.get("source", "Unknown")
                 if file_name == QA_MEMORY_FILE or file_name.endswith(".txt"):
-                    output = f"{answer}\n\n📚 **Source:** `{file_name}`"
+                    source_str = f"`{file_name}`"
                 else:
                     page_num = best_doc.metadata.get("page", 0) + 1
-                    output = f"{answer}\n\n📚 **Source:** `{file_name}` (Page {page_num})"
+                    source_str = f"`{file_name}` (Page {page_num})"
             else:
-                output = answer
+                source_str = "`Chat History`"
+            footer = f"\n\n📚 **Source:** {source_str} | ⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}`"
+
+        st.markdown(footer)  # [ADDED] Source + Model + Speed footer render
+        output = answer + footer
 
     except Exception as e:
         output = f"⚠️ LLM/API Error: Please check if Ollama is running (`ollama serve`). Details: {e}"
+        st.error(output)
 
     sessions[session_id].append({"role": "user", "content": question})
     sessions[session_id].append({"role": "assistant", "content": output})
     save_sessions(sessions)
-    return output
 
 
 current_id = st.session_state.current_session
@@ -285,6 +360,4 @@ if user_prompt := st.chat_input("Ask a question from your uploaded PDF/TXT docum
         st.markdown(user_prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Generating answer..."):
-            reply = ask(user_prompt, current_id)
-            st.markdown(reply)
+        ask_stream(user_prompt, current_id)  # [UPDATED] Live streaming function call
