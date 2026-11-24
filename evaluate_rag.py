@@ -6,13 +6,12 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-# 1. Load Existing Vector Store & Embeddings
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vectorstore = Chroma(persist_directory="chroma_db", embedding_function=embedding)
 
-# 2. 20 Practical Test Cases (15 In-Document Questions + 5 Out-of-Scope Hallucination Checks)
+
 TEST_CASES = [
-    # --- In-Document Questions (Function Interview Notes) ---
+    
     {"q": "What is a function in Python?", "keywords": ["block", "code", "def", "reusable"], "in_doc": True},
     {"q": "What is the difference between parameters and arguments?", "keywords": ["parameter", "argument", "definition", "pass"], "in_doc": True},
     {"q": "What is a lambda function?", "keywords": ["anonymous", "lambda", "expression", "single"], "in_doc": True},
@@ -29,7 +28,7 @@ TEST_CASES = [
     {"q": "What is a generator function?", "keywords": ["yield", "iterator", "lazy", "sequence"], "in_doc": True},
     {"q": "What is the difference between return and yield?", "keywords": ["return", "yield", "pause", "state", "terminate"], "in_doc": True},
 
-    # --- Out-of-Document Questions (Must refuse without hallucinating) ---
+    
     {"q": "Who won the FIFA World Cup in 2022?", "keywords": [], "in_doc": False},
     {"q": "What is the capital city of France?", "keywords": [], "in_doc": False},
     {"q": "Explain quantum entanglement in physics.", "keywords": [], "in_doc": False},
@@ -68,7 +67,6 @@ def evaluate_pipeline(model_name, rag_mode="advanced"):
         q = case["q"]
         t0 = time.time()
 
-        # Step 1: Query Transformation & Retrieval
         if rag_mode == "advanced":
             search_query = rewrite_chain.invoke({"question": q}).strip()
             docs = vectorstore.max_marginal_relevance_search(
@@ -81,18 +79,15 @@ def evaluate_pipeline(model_name, rag_mode="advanced"):
 
         context = "\n\n".join(d.page_content for d in docs) if docs else "No matching notes found."
 
-        # Step 2: Check Context Relevance (Retrieval Accuracy)
         if case["in_doc"]:
             context_lower = context.lower()
             if any(kw in context_lower for kw in case["keywords"]):
                 retrieval_hits += 1
 
-        # Step 3: Generate Answer
         answer = qa_chain.invoke({"context": context, "question": q}).strip()
         latency = round(time.time() - t0, 2)
         total_time += latency
 
-        # Step 4: Check Answer Relevance & Faithfulness (Hallucination Check)
         ans_lower = answer.lower()
         refused = "not found in the notes" in ans_lower
 
@@ -148,11 +143,9 @@ if __name__ == "__main__":
         all_summaries.append(summary)
         all_details[f"{model}_{mode}"] = logs
 
-    # Save JSON results
     with open("evaluation_results.json", "w", encoding="utf-8") as f:
         json.dump({"summary": all_summaries, "details": all_details}, f, indent=2, ensure_ascii=False)
 
-    # Generate Markdown Performance Comparison Report
     md_lines = [
         "# 📊 RAG Evaluation & Model Performance Comparison Report\n",
         "Evaluated across **20 test cases** (15 in-document technical questions + 5 out-of-scope hallucination checks).\n",

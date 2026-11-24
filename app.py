@@ -1,6 +1,6 @@
 import json
 import os
-import time  # [ADDED] Generation speed measure karne ke liye
+import time  
 import tempfile
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -13,7 +13,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 
 st.set_page_config(page_title="Document-Based AI Assistant", page_icon="📚", layout="wide")
-st.title("📚 Document-Based AI Assistant (Advanced RAG)")  # [UPDATED] Title updated
+st.title("📚 Document-Based AI Assistant (Advanced RAG)") 
 
 DB_DIR = "chroma_db"
 QA_MEMORY_FILE = "qa_memory.json"
@@ -21,11 +21,11 @@ HISTORY_FILE = "chat_history.json"
 
 
 @st.cache_resource
-def load_embeddings():  # [UPDATED] Sirf embedding cache hogi, LLM sidebar sliders ke hisab se dynamic banega
+def load_embeddings():  
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
-def get_llm(model_name, temperature, top_p, max_tokens):  # [ADDED] Sidebar controls se dynamic LLM banata hai
+def get_llm(model_name, temperature, top_p, max_tokens):  
     return ChatOllama(
         model=model_name,
         temperature=temperature,
@@ -42,7 +42,7 @@ def get_vectorstore():
     if (
         vs._collection.count() == 0
         and os.path.exists(QA_MEMORY_FILE)
-        and os.path.getsize(QA_MEMORY_FILE) > 0  # [UPDATED] Empty JSON crash se bachne ke liye
+        and os.path.getsize(QA_MEMORY_FILE) > 0  
     ):
         with open(QA_MEMORY_FILE, "r", encoding="utf-8") as f:
             saved_qa = json.load(f)
@@ -63,7 +63,7 @@ vectorstore = get_vectorstore()
 
 def save_to_qa_memory(question, answer):
     qa_data = []
-    if os.path.exists(QA_MEMORY_FILE) and os.path.getsize(QA_MEMORY_FILE) > 0:  # [UPDATED] Safe empty check
+    if os.path.exists(QA_MEMORY_FILE) and os.path.getsize(QA_MEMORY_FILE) > 0:  
         with open(QA_MEMORY_FILE, "r", encoding="utf-8") as f:
             qa_data = json.load(f)
 
@@ -79,7 +79,7 @@ def save_to_qa_memory(question, answer):
 
 
 def load_sessions():
-    if os.path.exists(HISTORY_FILE) and os.path.getsize(HISTORY_FILE) > 0:  # [UPDATED] Safe empty check
+    if os.path.exists(HISTORY_FILE) and os.path.getsize(HISTORY_FILE) > 0:  
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {"session_1": []}
@@ -96,27 +96,24 @@ if "current_session" not in st.session_state:
     st.session_state.current_session = "session_1"
 
 
-# Sidebar: LLM Controls + Advanced RAG + Upload Documents + Sessions
 with st.sidebar:
-    # --- [ADDED] 1. LLM Model & Hyperparameters Controls ---
-    st.header("🤖 LLM Settings")  # [ADDED]
-    selected_model = st.selectbox("Model", ["llama3.2:latest", "qwen2.5:3b", "qwen2.5:1.5b"])  # [ADDED] 2+ Ollama models switch
-    temperature = st.slider("Temperature", 0.0, 1.0, 0.1, step=0.1)  # [ADDED] Creativity vs factual control
-    top_p = st.slider("Top-P", 0.1, 1.0, 0.9, step=0.1)  # [ADDED] Nucleus sampling
-    max_tokens = st.slider("Max Tokens", 128, 1024, 512, step=64)  # [ADDED] Max output tokens
+    st.header("🤖 LLM Settings") 
+    selected_model = st.selectbox("Model", ["llama3.2:latest", "qwen2.5:3b", "qwen2.5:1.5b"])  
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.1, step=0.1)  
+    top_p = st.slider("Top-P", 0.1, 1.0, 0.9, step=0.1)  
+    max_tokens = st.slider("Max Tokens", 128, 1024, 512, step=64)  
+    st.divider()  
 
-    st.divider()  # [ADDED]
-
-    # --- [ADDED] 2. Advanced RAG & Prompt Controls ---
-    st.header("⚙️ RAG & Prompt Mode")  # [ADDED]
-    rag_mode = st.radio("RAG Pipeline", ["Advanced RAG", "Basic RAG"], horizontal=True)  # [ADDED] Basic vs Advanced compare
-    top_k = st.slider("Top-K Chunks", 2, 8, 4)  # [ADDED] Dynamic Top-K retrieval
-    task_mode = st.selectbox("Task Mode", ["Question Answering", "Summarization", "Document Explanation"])  # [ADDED] 3 prompt modes
-    length_mode = st.radio("Response Length", ["Short", "Medium", "Detailed"], horizontal=True)  # [ADDED] Short/Medium/Detailed
+    
+    st.header("⚙️ RAG & Prompt Mode")  
+    rag_mode = st.radio("RAG Pipeline", ["Advanced RAG", "Basic RAG"], horizontal=True)  
+    top_k = st.slider("Top-K Chunks", 2, 8, 4)  
+    task_mode = st.selectbox("Task Mode", ["Question Answering", "Summarization", "Document Explanation"])  
+    length_mode = st.radio("Response Length", ["Short", "Medium", "Detailed"], horizontal=True) 
 
     st.divider()
 
-    # --- Existing Upload Documents Section ---
+    
     st.header("📂 Upload Documents")
     uploaded_files = st.file_uploader(
         "Upload PDF ya TXT files", type=["pdf", "txt"], accept_multiple_files=True
@@ -198,20 +195,17 @@ with st.sidebar:
         st.rerun()
 
 
-llm = get_llm(selected_model, temperature, top_p, max_tokens)  # [ADDED] Active sidebar settings se LLM load
+llm = get_llm(selected_model, temperature, top_p, max_tokens)  
 
-
-# [UPDATED] Query Transformation + Query Expansion Prompt
 rewrite_prompt = ChatPromptTemplate.from_template(
     "Rewrite the user's question using Chat History so it is completely standalone, "
-    "and append 2 concise related keywords to improve document retrieval. "  # [ADDED] Query expansion
+    "and append 2 concise related keywords to improve document retrieval. "  
     "Return ONLY the expanded query on one line.\n\n"
     "Chat History:\n{chat_history}\n\n"
     "Follow-up Question: {question}\n"
     "Expanded Query:"
 )
 
-# [ADDED] Task-Specific Prompts & Response Length Rules
 TASK_PROMPTS = {
     "Question Answering": (
         "1. First, check Chat History for facts told by the user. If found, answer directly.\n"
@@ -242,14 +236,14 @@ def format_history(session_id):
     return "\n".join(f"{m['role']}: {m['content']}" for m in history)
 
 
-def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG support ke saath
+def ask_stream(question, session_id):  
     sessions = st.session_state.sessions
     text = question.lower().strip()
     greetings = ("hi", "hello", "hey", "namaste", "good morning", "good evening")
     question_words = (
         "?", "what", "who", "where", "when", "why", "how",
         "kya", "kaun", "kab", "kaise", "kitna", "tell",
-        "explain", "define", "list", "give", "summarize", "summary", "batao", "samjhao"  # [UPDATED]
+        "explain", "define", "list", "give", "summarize", "summary", "batao", "samjhao"  
     )
 
     if text in greetings:
@@ -263,7 +257,7 @@ def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG supp
         return
 
     is_question = any(word in text for word in question_words)
-    if not is_question and task_mode == "Question Answering":  # [UPDATED]
+    if not is_question and task_mode == "Question Answering":  
         answer = "Got it!"
         st.markdown(answer)
         save_to_qa_memory(question, "User shared this information.")
@@ -275,20 +269,19 @@ def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG supp
         return
 
     try:
-        start_time = time.time()  # [ADDED] Speed timer
+        start_time = time.time()  
         chat_history = format_history(session_id)
 
-        # [UPDATED] Advanced RAG: Query Expansion | Basic RAG: Raw Question
+        
         if rag_mode == "Advanced RAG":
             rewrite_chain = rewrite_prompt | llm | StrOutputParser()
             search_query = rewrite_chain.invoke(
                 {"chat_history": chat_history, "question": question}
             ).strip()
-            st.caption(f"🔎 **Expanded Query:** `{search_query}`")  # [ADDED] UI par expanded query dikhayega
+            st.caption(f"🔎 **Expanded Query:** `{search_query}`")  
         else:
             search_query = question
 
-        # [UPDATED] Advanced RAG: MMR (diverse chunks) | Basic RAG: Standard Similarity Search
         if rag_mode == "Advanced RAG":
             relevant_docs = vectorstore.max_marginal_relevance_search(
                 search_query, k=top_k, fetch_k=top_k * 3, lambda_mult=0.6
@@ -303,7 +296,6 @@ def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG supp
             else "No matching notes found."
         )
 
-        # [ADDED] Dynamic Prompt combining Task Mode & Length Mode
         dynamic_prompt = ChatPromptTemplate.from_template(
             f"You are a helpful AI assistant. Follow these rules strictly:\n{TASK_PROMPTS[task_mode]}\n"
             f"{LENGTH_RULES[length_mode]}\n\n"
@@ -315,12 +307,11 @@ def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG supp
 
         chain = dynamic_prompt | llm | StrOutputParser()
 
-        # [ADDED] Token-by-token live streaming in Streamlit UI
         answer = st.write_stream(
             chain.stream({"chat_history": chat_history, "context": context, "question": question})
         ).strip()
 
-        elapsed = round(time.time() - start_time, 2)  # [ADDED] Total response time
+        elapsed = round(time.time() - start_time, 2) 
 
         if "not found in the notes" in answer.lower():
             footer = f"\n\n⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}`"
@@ -338,7 +329,7 @@ def ask_stream(question, session_id):  # [UPDATED] Streaming + Advanced RAG supp
                 source_str = "`Chat History`"
             footer = f"\n\n📚 **Source:** {source_str} | ⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}`"
 
-        st.markdown(footer)  # [ADDED] Source + Model + Speed footer render
+        st.markdown(footer)  
         output = answer + footer
 
     except Exception as e:
@@ -360,4 +351,4 @@ if user_prompt := st.chat_input("Ask a question from your uploaded PDF/TXT docum
         st.markdown(user_prompt)
 
     with st.chat_message("assistant"):
-        ask_stream(user_prompt, current_id)  # [UPDATED] Live streaming function call
+        ask_stream(user_prompt, current_id)  
