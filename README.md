@@ -1,62 +1,55 @@
-# 🚀 Document-Based AI Assistant (Advanced RAG & Multi-Model LLM Workbench)
+# 🧠 Mental Wellness Educational AI Assistant (Advanced RAG)
 
-An upgraded local Retrieval-Augmented Generation (RAG) chatbot built with **Python, LangChain, ChromaDB, HuggingFace Embeddings, Ollama, and Streamlit**. Designed for grounded document question-answering, summarization, and concept explanation with zero external hallucinations.
-
----
-
-## ✨ Key Features Implemented
-
-### 1. Advanced RAG Pipeline
-- **Query Transformation & Expansion:** Rewrites ambiguous follow-up questions using conversation history into standalone search queries and appends related keywords to improve vector retrieval.
-- **MMR (Maximum Marginal Relevance) Retrieval:** Uses `max_marginal_relevance_search` (`k=4, fetch_k=12, lambda_mult=0.6`) to retrieve relevant yet diverse document chunks, eliminating redundant context.
-- **Basic vs. Advanced RAG Mode Toggle:** Switch live between standard similarity search (`Basic RAG`) and `Query Expansion + MMR` (`Advanced RAG`) to compare retrieval behavior.
-- **Dynamic Chunking & Score Filtering:** Configurable `chunk_size`, `chunk_overlap`, `top_k`, and similarity score thresholds.
-
-### 2. Multi-Model Local LLM Workbench (Ollama)
-- **Live Model Switching:** Compare multiple local Ollama models on the fly (`llama3.2:latest`, `qwen2.5:3b`, `qwen2.5:1.5b`).
-- **Hyperparameter Controls:** Interactive controls for **Temperature** (randomness vs. determinism), **Top-P** (nucleus sampling), and **Max Tokens**.
-- **Token-by-Token Streaming:** Real-time response streaming in both the Streamlit UI (`st.write_stream`) and CLI (`chain.stream`) along with inference latency tracking.
-
-### 3. Prompt Engineering & Conversational Memory
-- **Task-Specific System Prompts:** Dedicated prompt templates for **Question Answering**, **Summarization**, and **Document Explanation**.
-- **Response Length Modes:** Control output verbosity with **Short** (1–2 sentences), **Medium** (1 paragraph), and **Detailed** (structured bullet points) modes.
-- **Strict Grounding & Hallucination Control:** Restricts answers strictly to retrieved document context and chat history, safely replying `"Not found in the notes."` when information is unavailable.
-- **Dual Memory Architecture:** Multi-session chat history (`chat_history.json`) combined with persistent Q&A long-term memory (`qa_memory.json` + ChromaDB).
+An end-to-end **Retrieval-Augmented Generation (RAG)** chatbot built with **Python, LangChain, ChromaDB, BM25, HuggingFace Cross-Encoder, Ollama (`qwen2.5:3b`), and Streamlit**. Designed as a grounded retrieval foundation for an AI Mental Wellness Educational Assistant.
 
 ---
 
-## 🧠 Core Concepts Explained
+## 🏗️ Retrieval & Generation Architecture
 
-- **Basic RAG vs. Advanced RAG:** Basic RAG embeds the raw user query and performs top-$k$ cosine similarity search, which can struggle with follow-up questions or return repetitive chunks. Advanced RAG expands the query with conversational context and applies MMR to balance relevance with diversity.
-- **Tokenization, Context Window & Embeddings:** LLMs process text as sub-word **tokens** within a fixed **context window**. Dense vector **embeddings** (`all-MiniLM-L6-v2`) map text chunks into semantic vector space for meaning-based retrieval.
-- **LLM Decoding Parameters:** Lower `Temperature` (`0.0–0.1`) ensures factual, deterministic RAG outputs, while higher values increase creativity. `Top-P` limits token selection to the smallest cumulative probability mass $P$.
-- **Local Execution via Ollama:** Ollama runs quantized GGUF weights locally using `llama.cpp` on Apple Silicon unified memory, ensuring complete data privacy with zero external API costs.
-
----
-
-## 📊 RAG Evaluation & Model Benchmark (20 Test Cases)
-
-Evaluated using `evaluate_rag.py` across **15 in-document technical questions** and **5 out-of-scope hallucination checks** (full logs in `EVALUATION_REPORT.md` & `evaluation_results.json`):
-
-| Model | RAG Mode | Answer Relevance (In-Doc) | Faithfulness (No Hallucination) | Avg Latency |
-| :--- | :--- | :---: | :---: | :---: |
-| `qwen2.5:3b` | **ADVANCED** | **14/15 (93.3%)** | **5/5 (100%)** | ~3.6s |
-| `qwen2.5:1.5b` | **ADVANCED** | 12/15 (80.0%) | 4/5 (80%) | ~1.5s |
-| `llama3.2:latest` | **ADVANCED** | 6/15 (40.0%) | **5/5 (100%)** | ~2.2s |
-
-### Key Benchmark Takeaways
-- **`qwen2.5:3b` (Best Overall):** Achieved **93.3%** grounded answer accuracy with **100%** hallucination prevention.
-- **`qwen2.5:1.5b` (Fastest):** Delivered the lowest latency (~1.5s/query) but hallucinated on 1 out-of-scope question, illustrating the trade-off between model size and strict instruction adherence.
+1. **Knowledge Base & Metadata Indexing (`knowledge_base/`):**
+   - Loads educational `.txt` and `.pdf` documents (`stress_management.txt`, `anxiety_awareness.txt`, `mindfulness_sleep.txt`, `emotional_wellbeing.txt`) using `RecursiveCharacterTextSplitter` (`chunk_size=500`, `chunk_overlap=50`).
+   - Attaches structured metadata (`source`, `category`, `page`) to every chunk inside **ChromaDB**.
+2. **Context-Aware Memory & Query Rewriting:**
+   - Combines sliding short-term conversation turns (`chat_history`) with cosine-similarity retrieved Q&A memory (`qa_memory.json`).
+   - Resolves follow-up pronouns (`it`, `that`, `more`) into standalone search queries before retrieval.
+3. **Hybrid Search (BM25 + Semantic Vector RRF):**
+   - **BM25 Retriever (`weight = 0.4`):** Captures exact domain keywords (e.g., `4-4-4-4`, `4-7-8`, `5-4-3-2-1`).
+   - **Chroma Semantic Retriever (`weight = 0.6`):** Captures conceptual meaning using `sentence-transformers/all-MiniLM-L6-v2` with metadata `category` filtering.
+   - Fuses candidates via **Weighted Reciprocal Rank Fusion (RRF)** into Top-8 candidate chunks.
+4. **2-Stage Cross-Encoder Reranking:**
+   - Scores `(query, chunk)` pairs jointly using `cross-encoder/ms-marco-MiniLM-L-6-v2` and passes only the **Top-3 highest-relevance chunks** to `qwen2.5:3b` via Ollama.
+5. **Grounded Safety Guardrails:**
+   - Strictly answers from retrieved context and refuses medical diagnoses or ungrounded claims (`"Not found in the knowledge base."`).
 
 ---
 
-## 📁 Project Structure
+## 📊 4-Way Retrieval Evaluation Report (20 Test Cases)
 
-```text
-Document-Based-AI-Chatbot/
-├── app.py                    # Streamlit Web App (Advanced RAG + Multi-Model + Streaming)
-├── ChatBot.py                # CLI Terminal Chatbot with runtime slash commands
-├── evaluate_rag.py           # Automated 20-question RAG & LLM benchmark script
-├── EVALUATION_REPORT.md      # Markdown performance comparison report
-├── evaluation_results.json   # Detailed per-question evaluation logs
-├── requirements.txt
+| Pipeline Mode | Retrieval Relevance | Answer Accuracy | Avg Response Time |
+| :--- | :---: | :---: | :---: |
+| **Basic RAG** (Semantic `k=3`) | 95.0% (19/20) | 85.0% (17/20) | 2.03s |
+| **Advanced RAG** (Rewrite + Semantic `k=3`) | 95.0% (19/20) | 85.0% (17/20) | 2.39s |
+| **Hybrid Search** (BM25 + Semantic RRF) | **100.0% (20/20)** | 80.0% (16/20) | **1.92s** |
+| **Hybrid + Cross-Encoder Rerank (Day 3)** | **95.0% (19/20)** | **95.0% (19/20)** | 2.22s |
+
+### Key Observations & Improvements
+- **Hybrid Search Achieved 100% Recall (20/20):** Combining BM25 keyword matching with Semantic embeddings retrieved the relevant document for every query, though raw RRF without reranking occasionally ranked secondary chunks above the exact answer passage (80.0% answer accuracy).
+- **Cross-Encoder Reranking Boosted Answer Accuracy to 95.0% (19/20):** Re-scoring the Top-8 hybrid candidates with `ms-marco-MiniLM-L-6-v2` eliminated noisy chunks and promoted the exact answer passage to Rank 1 with minimal latency overhead (`2.22s`).
+- **Hallucination Prevention:** On out-of-context queries (e.g., *"How many hours of sleep do adults need?"*), the assistant safely returned `"Not found in the knowledge base."` instead of fabricating numbers.
+
+---
+
+## 🚀 How to Run Locally
+
+```bash
+# 1. Pull local LLM via Ollama
+ollama pull qwen2.5:3b
+
+# 2. Run Terminal Chatbot (supports /cat <Category> metadata filter)
+python ChatBot.py
+
+# 3. Run Streamlit Web UI
+streamlit run app.py
+
+# 4. Run 20-Query 4-Way Evaluation Benchmark
+python evaluate_rag.py

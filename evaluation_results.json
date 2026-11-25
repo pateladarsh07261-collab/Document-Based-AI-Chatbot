@@ -6,7 +6,7 @@
       "retrieval_accuracy": "14/15 (93.3%)",
       "answer_relevance": "8/15 (53.3%)",
       "faithfulness_no_hallucination": "5/5 (100.0%)",
-      "avg_response_time_sec": 1.65
+      "avg_response_time_sec": 1.69
     },
     {
       "model": "llama3.2:latest",
@@ -14,23 +14,23 @@
       "retrieval_accuracy": "15/15 (100.0%)",
       "answer_relevance": "7/15 (46.7%)",
       "faithfulness_no_hallucination": "5/5 (100.0%)",
-      "avg_response_time_sec": 2.23
+      "avg_response_time_sec": 2.24
     },
     {
       "model": "qwen2.5:3b",
       "rag_mode": "advanced",
       "retrieval_accuracy": "15/15 (100.0%)",
-      "answer_relevance": "14/15 (93.3%)",
+      "answer_relevance": "13/15 (86.7%)",
       "faithfulness_no_hallucination": "5/5 (100.0%)",
-      "avg_response_time_sec": 3.46
+      "avg_response_time_sec": 3.33
     },
     {
       "model": "qwen2.5:1.5b",
       "rag_mode": "advanced",
       "retrieval_accuracy": "14/15 (93.3%)",
-      "answer_relevance": "12/15 (80.0%)",
+      "answer_relevance": "13/15 (86.7%)",
       "faithfulness_no_hallucination": "4/5 (80.0%)",
-      "avg_response_time_sec": 1.58
+      "avg_response_time_sec": 1.65
     }
   ],
   "details": {
@@ -40,7 +40,7 @@
         "in_doc": true,
         "search_query": "What is a function in Python?",
         "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called.",
-        "latency_sec": 5.94,
+        "latency_sec": 5.61,
         "status": "PASS"
       },
       {
@@ -48,7 +48,7 @@
         "in_doc": true,
         "search_query": "What is the difference between parameters and arguments?",
         "answer": "Not found in the notes.",
-        "latency_sec": 2.14,
+        "latency_sec": 2.23,
         "status": "FAIL"
       },
       {
@@ -56,7 +56,7 @@
         "in_doc": true,
         "search_query": "What is a lambda function?",
         "answer": "A lambda function is a small anonymous function in Python that can take any number of arguments, but can only contain a single expression.",
-        "latency_sec": 2.1,
+        "latency_sec": 2.5,
         "status": "PASS"
       },
       {
@@ -64,7 +64,7 @@
         "in_doc": true,
         "search_query": "What is the use of *args in Python?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.74,
+        "latency_sec": 1.94,
         "status": "FAIL"
       },
       {
@@ -72,7 +72,7 @@
         "in_doc": true,
         "search_query": "What is the use of **kwargs in Python?",
         "answer": "**kwargs packs keyword arguments into a dictionary. Used heavily in functions where there are a lot of arguments.",
-        "latency_sec": 2.12,
+        "latency_sec": 2.13,
         "status": "PASS"
       },
       {
@@ -80,7 +80,7 @@
         "in_doc": true,
         "search_query": "What does the return statement do?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.16,
+        "latency_sec": 1.44,
         "status": "FAIL"
       },
       {
@@ -88,7 +88,7 @@
         "in_doc": true,
         "search_query": "What is recursion in Python?",
         "answer": "Recursion in Python is a method where a function calls itself repeatedly until it reaches a base case that stops the recursion.",
-        "latency_sec": 2.34,
+        "latency_sec": 2.27,
         "status": "PASS"
       },
       {
@@ -96,7 +96,7 @@
         "in_doc": true,
         "search_query": "What are default arguments?",
         "answer": "Default arguments are values assigned to arguments in a function definition that are used if no value is provided when the function is called.",
-        "latency_sec": 2.56,
+        "latency_sec": 2.53,
         "status": "PASS"
       },
       {
@@ -104,7 +104,7 @@
         "in_doc": true,
         "search_query": "What is a docstring in a function?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.02,
+        "latency_sec": 1.07,
         "status": "FAIL"
       },
       {
@@ -112,7 +112,7 @@
         "in_doc": true,
         "search_query": "What is the difference between local and global variables?",
         "answer": "Local variables are stored in the stack frame when a function is called, whereas global variables are stored at the module level, determined at compile time.",
-        "latency_sec": 2.7,
+        "latency_sec": 2.73,
         "status": "PASS"
       },
       {
@@ -120,7 +120,7 @@
         "in_doc": true,
         "search_query": "What is a higher-order function?",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.47,
+        "latency_sec": 0.53,
         "status": "FAIL"
       },
       {
@@ -136,7 +136,7 @@
         "in_doc": true,
         "search_query": "What is a decorator in Python?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.73,
+        "latency_sec": 1.8,
         "status": "FAIL"
       },
       {
@@ -144,7 +144,7 @@
         "in_doc": true,
         "search_query": "What is a generator function?",
         "answer": "A generator function is internally a function that uses the yield keyword to produce a sequence of values instead of returning them directly.",
-        "latency_sec": 1.86,
+        "latency_sec": 1.91,
         "status": "PASS"
       },
       {
@@ -152,7 +152,7 @@
         "in_doc": true,
         "search_query": "What is the difference between return and yield?",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.9,
+        "latency_sec": 0.88,
         "status": "FAIL"
       },
       {
@@ -176,7 +176,7 @@
         "in_doc": false,
         "search_query": "Explain quantum entanglement in physics.",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.36,
+        "latency_sec": 0.42,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -192,7 +192,7 @@
         "in_doc": false,
         "search_query": "How do you bake a chocolate cake?",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.35,
+        "latency_sec": 0.37,
         "status": "PASS (Refused Safely)"
       }
     ],
@@ -202,7 +202,7 @@
         "in_doc": true,
         "search_query": "What is a function in Python functions definition",
         "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called.",
-        "latency_sec": 2.67,
+        "latency_sec": 2.74,
         "status": "PASS"
       },
       {
@@ -210,7 +210,7 @@
         "in_doc": true,
         "search_query": "What is the difference between parameters and arguments in programming?",
         "answer": "Not found in the notes.",
-        "latency_sec": 2.3,
+        "latency_sec": 2.28,
         "status": "FAIL"
       },
       {
@@ -218,7 +218,7 @@
         "in_doc": true,
         "search_query": "What is a lambda function in Python programming?",
         "answer": "A lambda function is a small anonymous function that can take any number of arguments, but can only contain a single expression.",
-        "latency_sec": 2.8,
+        "latency_sec": 2.84,
         "status": "PASS"
       },
       {
@@ -226,7 +226,7 @@
         "in_doc": true,
         "search_query": "What is the use of *args in Python variable passing and function arguments?",
         "answer": "*args packs extra positional arguments into a tuple. It does not allow keyword arguments.",
-        "latency_sec": 2.06,
+        "latency_sec": 2.12,
         "status": "PASS"
       },
       {
@@ -234,7 +234,7 @@
         "in_doc": true,
         "search_query": "What is the use of **kwargs in Python keyword arguments",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.75,
+        "latency_sec": 1.82,
         "status": "FAIL"
       },
       {
@@ -242,7 +242,7 @@
         "in_doc": true,
         "search_query": "What does the return statement do in programming?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.52,
+        "latency_sec": 1.49,
         "status": "FAIL"
       },
       {
@@ -250,7 +250,7 @@
         "in_doc": true,
         "search_query": "\"recursion in Python recursion examples\"",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.8,
+        "latency_sec": 2.04,
         "status": "FAIL"
       },
       {
@@ -258,7 +258,7 @@
         "in_doc": true,
         "search_query": "What are default arguments in programming languages Python and JavaScript?",
         "answer": "Not found in the notes.",
-        "latency_sec": 2.07,
+        "latency_sec": 2.19,
         "status": "FAIL"
       },
       {
@@ -266,39 +266,39 @@
         "in_doc": true,
         "search_query": "What is a docstring in a function documentation python",
         "answer": "A docstring in a function is a string literal that occurs as the first statement in a function, class, or module definition. It is used to document the function, class, or module, and is often used by tools such as Sphinx to generate documentation for the code.",
-        "latency_sec": 4.01,
+        "latency_sec": 4.17,
         "status": "PASS"
       },
       {
         "question": "What is the difference between local and global variables?",
         "in_doc": true,
         "search_query": "What is the difference between local and global variables in programming?",
-        "answer": "Not found in the notes.",
-        "latency_sec": 2.0,
-        "status": "FAIL"
+        "answer": "Local variables are stored in the stack frame when a function is called, whereas global variables are stored at the module level.",
+        "latency_sec": 2.9,
+        "status": "PASS"
       },
       {
         "question": "What is a higher-order function?",
         "in_doc": true,
         "search_query": "What is a higher-order function programming concept in computer science?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.93,
+        "latency_sec": 2.0,
         "status": "FAIL"
       },
       {
         "question": "How does the map() function work?",
         "in_doc": true,
         "search_query": "How does the map() function work in JavaScript?",
-        "answer": "The map() function applies a given function to each item of an iterable (such as a list, tuple, or string) and returns a map object. The map object is an iterator, so it doesn't compute the values until they're actually needed. This is an example of lazy evaluation.",
-        "latency_sec": 3.75,
-        "status": "PASS"
+        "answer": "Not found in the notes.",
+        "latency_sec": 1.7,
+        "status": "FAIL"
       },
       {
         "question": "What is a decorator in Python?",
         "in_doc": true,
         "search_query": "What is a decorator in Python? Python decorators",
         "answer": "A decorator in Python is a small function that takes another function as an argument and extends its behavior without permanently modifying it.",
-        "latency_sec": 2.0,
+        "latency_sec": 1.98,
         "status": "PASS"
       },
       {
@@ -306,7 +306,7 @@
         "in_doc": true,
         "search_query": "What is a generator function in Python programming related to iterable and lazy evaluation.",
         "answer": "A generator function is internally a function that uses the yield keyword to produce a generator object that: Maintains state, Suspends execution, Uses lazy evaluation, It saves memory for large data sets.",
-        "latency_sec": 3.05,
+        "latency_sec": 3.01,
         "status": "PASS"
       },
       {
@@ -314,7 +314,7 @@
         "in_doc": true,
         "search_query": "What is the difference between return and yield in Python programming?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.76,
+        "latency_sec": 1.88,
         "status": "FAIL"
       },
       {
@@ -322,7 +322,7 @@
         "in_doc": false,
         "search_query": "Who won the FIFA World Cup in 2022?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.72,
+        "latency_sec": 1.87,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -330,7 +330,7 @@
         "in_doc": false,
         "search_query": "What is the capital city of France? capital city of France",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.92,
+        "latency_sec": 1.88,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -338,7 +338,7 @@
         "in_doc": false,
         "search_query": "\"quantum entanglement physics explained\"",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.8,
+        "latency_sec": 1.61,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -346,7 +346,7 @@
         "in_doc": false,
         "search_query": "What is the current stock price of Apple Inc. real-time stock market data",
         "answer": "Not found in the notes.",
-        "latency_sec": 2.24,
+        "latency_sec": 2.73,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -354,7 +354,7 @@
         "in_doc": false,
         "search_query": "How to bake a chocolate cake recipes",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.42,
+        "latency_sec": 1.6,
         "status": "PASS (Refused Safely)"
       }
     ],
@@ -364,15 +364,15 @@
         "in_doc": true,
         "search_query": "What is a function in Python? related_keywords: defining_functions, examples_of_functions",
         "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called. It is used in data structures like `funcs = [func1, func2]` and is crucial in Python architecture for supporting dynamic behavior, callbacks, decorators, and framework abstractions. Functions in Python can also be positional-only and keyword-only, with `*args` packing extra positional arguments into a tuple and `**kwargs` packing keyword arguments into a dictionary.",
-        "latency_sec": 8.18,
+        "latency_sec": 8.32,
         "status": "PASS"
       },
       {
         "question": "What is the difference between parameters and arguments?",
         "in_doc": true,
         "search_query": "What is the difference between parameters and arguments? related_keywords",
-        "answer": "Parameters are variables listed while defining a function, while arguments are the values that are sent to the function when it is called.",
-        "latency_sec": 2.74,
+        "answer": "The difference between parameters and arguments is that parameters are the variables listed inside the function definition in the function's header. When a function is called, the values passed by the user are the arguments, which are then assigned to the parameters.",
+        "latency_sec": 3.76,
         "status": "PASS"
       },
       {
@@ -380,7 +380,7 @@
         "in_doc": true,
         "search_query": "What is a lambda function? related keywords: functional programming, anonymous functions",
         "answer": "A lambda function is a small anonymous function created with the `lambda` keyword. It can have any number of arguments but can only have one expression. Lambda functions are used where a function definition is unnecessary, such as passing a small function as an argument to another function. They are often used for short, simple operations.",
-        "latency_sec": 4.61,
+        "latency_sec": 4.45,
         "status": "PASS"
       },
       {
@@ -388,7 +388,7 @@
         "in_doc": true,
         "search_query": "What is the use of *args in Python? related-keywords: Python function arguments, tuple unpacking examples",
         "answer": "*args in Python packs extra positional arguments into a tuple. It does not allow keyword arguments.",
-        "latency_sec": 3.2,
+        "latency_sec": 3.19,
         "status": "PASS"
       },
       {
@@ -396,15 +396,15 @@
         "in_doc": true,
         "search_query": "What is the use of kwargs in Python? related_keywords: keyword_arguments, usage_in_functions",
         "answer": "**kwargs in Python packs keyword arguments into a dictionary. Used heavily in frameworks like Django and Flask.",
-        "latency_sec": 2.45,
+        "latency_sec": 2.56,
         "status": "PASS"
       },
       {
         "question": "What does the return statement do?",
         "in_doc": true,
         "search_query": "What does the return statement do in programming? programming keywords",
-        "answer": "The return statement in Python is used to terminate the execution of a function and send the result back to the caller. The value of the expression after the return statement is returned as the result of the function call. If no expression is specified after return, the function returns None.",
-        "latency_sec": 3.76,
+        "answer": "The return statement is used to terminate the execution of a function and send a value back to the caller.",
+        "latency_sec": 2.25,
         "status": "PASS"
       },
       {
@@ -412,7 +412,7 @@
         "in_doc": true,
         "search_query": "What is recursion in Python? related-terms: recursive-functions, deep-dive-recursion-Python",
         "answer": "Recursion in Python is a process where a function calls itself repeatedly until a certain condition is met.",
-        "latency_sec": 2.92,
+        "latency_sec": 2.91,
         "status": "PASS"
       },
       {
@@ -420,7 +420,7 @@
         "in_doc": true,
         "search_query": "What are default arguments in Python? related-keywords: function-arguments, python-features",
         "answer": "Default arguments are evaluated at function definition time, not call time. This can cause bugs with mutable defaults.",
-        "latency_sec": 3.1,
+        "latency_sec": 3.11,
         "status": "PASS"
       },
       {
@@ -428,31 +428,31 @@
         "in_doc": true,
         "search_query": "What is a docstring in a function? related keywords: function documentation, python docstrings",
         "answer": "Not found in the notes.",
-        "latency_sec": 2.45,
+        "latency_sec": 2.42,
         "status": "FAIL"
       },
       {
         "question": "What is the difference between local and global variables?",
         "in_doc": true,
         "search_query": "What is the difference between local and global variables? related_keywords",
-        "answer": "The difference between local and global variables in Python is that local variables are defined within a function and are only accessible within that function. On the other hand, global variables are defined outside of any function and are accessible throughout the script. If a variable with the same name is used both locally and globally, the local variable will shadow the global one within the function.",
-        "latency_sec": 4.21,
+        "answer": "The difference between local and global variables in Python is that local variables are defined within a function and are only accessible within that function. Global variables, on the other hand, are defined outside of any function and are accessible throughout the entire script. Global variables can be accessed from within functions, but local variables are only accessible within the function they are defined in.",
+        "latency_sec": 4.27,
         "status": "PASS"
       },
       {
         "question": "What is a higher-order function?",
         "in_doc": true,
         "search_query": "What is a higher-order function? related keywords: functional programming, mathematics",
-        "answer": "A higher-order function is a function that takes one or more functions as arguments or returns a function as its result. It is a common pattern in functional programming and is used for data transformation pipelines, as you mentioned in question 19. Real-world use cases include functions like `map`, `filter`, and `reduce` which are built into Python for processing collections of data.",
-        "latency_sec": 4.47,
+        "answer": "A higher-order function is a function that takes one or more functions as arguments or returns a function as its result. A real use case for higher-order functions is the `map`, `filter`, and `reduce` functions in Python, which allow for data transformation pipelines.",
+        "latency_sec": 3.53,
         "status": "PASS"
       },
       {
         "question": "How does the map() function work?",
         "in_doc": true,
         "search_query": "How does the map() function work? map function examples",
-        "answer": "The map() function in Python applies a specified function to each item of an iterable (such as a list, tuple etc.) and returns a map object (which is an iterator) of the results. It takes two parameters: a function and an iterable. It applies the function to each item of the iterable and returns a new iterable with the results. For example, if you have a list of numbers and you want to apply a function to each number, you can use map with the function and the list.",
-        "latency_sec": 5.65,
+        "answer": "The `map()` function in Python works by applying a specified function to each item of an iterable (such as a list, tuple etc.) and returns an iterator that produces a result. This means that for each item in the iterable, the function is called with the item as an argument, and the result of this function call is yielded. The `map()` function is a higher-order function that allows mapping a given function to an iterable (or iterables) and returns an iterator that produces a result. This iterator can be converted to other iterable types like list, tuple, etc., if needed.",
+        "latency_sec": 5.99,
         "status": "PASS"
       },
       {
@@ -460,31 +460,31 @@
         "in_doc": true,
         "search_query": "What is a decorator in Python? related-keywords: Python decorators explanation",
         "answer": "A decorator in Python is a design pattern that allows a user to add new functionality to an existing object without modifying its structure. Decorators are implemented as functions that take another function and extend the behavior of the latter function without explicitly modifying it. They are typically used to modify or enhance the behavior of functions or classes.",
-        "latency_sec": 4.45,
+        "latency_sec": 4.7,
         "status": "PASS"
       },
       {
         "question": "What is a generator function?",
         "in_doc": true,
         "search_query": "What is a generator function? related keywords: JavaScript generator function",
-        "answer": "A generator function returns a generator object that: maintains state, suspends execution, and uses lazy evaluation, saving memory for large data sets.",
-        "latency_sec": 2.75,
+        "answer": "A generator function is internally a function that returns a generator object. This generator object maintains state, suspends execution, and uses lazy evaluation. It saves memory for large data sets.",
+        "latency_sec": 3.09,
         "status": "PASS"
       },
       {
         "question": "What is the difference between return and yield?",
         "in_doc": true,
         "search_query": "What is the difference between return and yield? concurrency programming keywords",
-        "answer": "The difference between return and yield in Python is that return is used to exit a function and return a value back to the caller, whereas yield is used to create a generator object. When a function is called, if it contains a yield statement, it does not actually exit the function but instead suspends its execution and returns a value. The function can be resumed from where it left off when the next value is requested from the generator. This makes yield useful for creating generator functions that can handle large data sets efficiently by only storing the state of the function, not the entire data set.",
-        "latency_sec": 5.58,
-        "status": "PASS"
+        "answer": "Not found in the notes.",
+        "latency_sec": 2.04,
+        "status": "FAIL"
       },
       {
         "question": "Who won the FIFA World Cup in 2022?",
         "in_doc": false,
         "search_query": "Who_won_FIFA_World_Cup_2022_related_to_soccer_teams",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.95,
+        "latency_sec": 2.0,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -492,7 +492,7 @@
         "in_doc": false,
         "search_query": "What is the capital city of France? related keywords: Paris, French首都",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.66,
+        "latency_sec": 1.9,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -500,7 +500,7 @@
         "in_doc": false,
         "search_query": "Explain quantum entanglement in physics keywords1 keywords2",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.77,
+        "latency_sec": 1.95,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -508,7 +508,7 @@
         "in_doc": false,
         "search_query": "Apple stock price current 2 concise related keywords: tech stock, stock market updates",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.87,
+        "latency_sec": 2.25,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -516,7 +516,7 @@
         "in_doc": false,
         "search_query": "How do you bake a chocolate cake? related_keywords: chocolate cake recipe, baking instructions",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.45,
+        "latency_sec": 2.0,
         "status": "PASS (Refused Safely)"
       }
     ],
@@ -526,7 +526,7 @@
         "in_doc": true,
         "search_query": "\"What is a function in Python? Related keywords: function, Python programming\"",
         "answer": "A function in Python is a first-class object that can be created at runtime, containing code object, default arguments, closure variables, and an execution frame when called.",
-        "latency_sec": 3.27,
+        "latency_sec": 3.09,
         "status": "PASS"
       },
       {
@@ -534,7 +534,7 @@
         "in_doc": true,
         "search_query": "What is the difference between parameters and arguments?",
         "answer": "Parameters are the variables defined within a function definition, while arguments are the values passed into the function when it is called.",
-        "latency_sec": 1.68,
+        "latency_sec": 1.61,
         "status": "PASS"
       },
       {
@@ -542,7 +542,7 @@
         "in_doc": true,
         "search_query": "What is a Lambda function and how does it work?",
         "answer": "A lambda function is a small anonymous function in Python that can take any number of arguments but can only have one expression. It is defined using the `lambda` keyword and is often used for short, one-liner functions that do not require a name.",
-        "latency_sec": 1.98,
+        "latency_sec": 2.03,
         "status": "PASS"
       },
       {
@@ -550,7 +550,7 @@
         "in_doc": true,
         "search_query": "What is the use of *args in Python?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.05,
+        "latency_sec": 1.09,
         "status": "FAIL"
       },
       {
@@ -558,23 +558,23 @@
         "in_doc": true,
         "search_query": "What is the use of **kwargs in Python? How does it work and when should it be used?",
         "answer": "**kwargs is used to pack keyword arguments into a dictionary, which can then be accessed by the function. This is particularly useful when the function needs to accept a variable number of arguments and the order of the arguments is not known. It allows the function to handle any number of keyword arguments without needing to know their names or types.",
-        "latency_sec": 2.46,
+        "latency_sec": 2.47,
         "status": "PASS"
       },
       {
         "question": "What does the return statement do?",
         "in_doc": true,
         "search_query": "What is the purpose of the return statement in programming?",
-        "answer": "Not found in the notes.",
-        "latency_sec": 1.04,
-        "status": "FAIL"
+        "answer": "The return statement in Python is used to exit a function and return a value to the caller. It can be used to return a value from a function, to exit a function prematurely, or to return a value from a function that is not defined in the function body.",
+        "latency_sec": 1.92,
+        "status": "PASS"
       },
       {
         "question": "What is recursion in Python?",
         "in_doc": true,
         "search_query": "\"What is recursion in Python and how to implement it in Python code.\"",
         "answer": "Recursion in Python is a technique where a function calls itself repeatedly until a base case is reached. This allows solving problems by breaking them down into smaller instances of the same problem.",
-        "latency_sec": 1.77,
+        "latency_sec": 1.78,
         "status": "PASS"
       },
       {
@@ -582,7 +582,7 @@
         "in_doc": true,
         "search_query": "What are default arguments in programming?",
         "answer": "Default arguments are evaluated at function definition time, not call time. This can cause bugs with mutable defaults.",
-        "latency_sec": 1.41,
+        "latency_sec": 1.45,
         "status": "PASS"
       },
       {
@@ -590,7 +590,7 @@
         "in_doc": true,
         "search_query": "What is a docstring in a function?",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.05,
+        "latency_sec": 1.11,
         "status": "FAIL"
       },
       {
@@ -598,7 +598,7 @@
         "in_doc": true,
         "search_query": "What is the difference between local and global variables?",
         "answer": "Local variables are stored within the scope of the function where they are defined, while global variables are accessible throughout the entire program. Local variables are created when the function is called and destroyed when the function returns, whereas global variables retain their values across function calls.",
-        "latency_sec": 1.94,
+        "latency_sec": 2.0,
         "status": "PASS"
       },
       {
@@ -606,15 +606,15 @@
         "in_doc": true,
         "search_query": "What is a higher-order function and how does it work?",
         "answer": "A higher-order function is a function that takes one or more functions as arguments or returns a function as its result.",
-        "latency_sec": 1.4,
+        "latency_sec": 1.3,
         "status": "PASS"
       },
       {
         "question": "How does the map() function work?",
         "in_doc": true,
         "search_query": "How does the map() function work in programming?",
-        "answer": "The map() function applies a given function to each item of an iterable (such as a list) and returns a list of the results. It takes two parameters: the function to be applied and the iterable. The function is called with each item of the iterable, and the results are collected into a new list.",
-        "latency_sec": 2.24,
+        "answer": "The map() function applies a given function to each item of an iterable (like a list) and returns a list of the results. It takes two parameters: the function to be applied and the iterable. For example, `map(func, iterable)` applies `func` to each item in `iterable`.",
+        "latency_sec": 2.18,
         "status": "PASS"
       },
       {
@@ -622,15 +622,15 @@
         "in_doc": true,
         "search_query": "What is a decorator in Python and how does it work?",
         "answer": "A decorator in Python is a function that takes another function and extends the behavior of the latter function without explicitly modifying it. It is a higher-order function that takes a function as an argument and returns a function that can be used in place of the original function. Decorators are used to add new functionality to existing functions without changing their source code.",
-        "latency_sec": 2.49,
+        "latency_sec": 2.53,
         "status": "PASS"
       },
       {
         "question": "What is a generator function?",
         "in_doc": true,
         "search_query": "What is a generator function and how does it work?",
-        "answer": "A generator function in Python is a function that uses the `yield` keyword to produce a sequence of results, rather than returning a single value. It returns a generator object that maintains state between calls and can be paused and resumed. Generators are memory-efficient for large data sets and can be used to implement lazy evaluation.",
-        "latency_sec": 2.2,
+        "answer": "A generator function in Python is a function that uses the `yield` keyword to produce a sequence of results, rather than returning a single value. It maintains state between function calls and can be used to generate a sequence of values on-the-fly, which is more memory-efficient for large data sets compared to using a list comprehension or a traditional function that returns a list.",
+        "latency_sec": 2.49,
         "status": "PASS"
       },
       {
@@ -638,7 +638,7 @@
         "in_doc": true,
         "search_query": "\"What is the difference between return and yield in programming languages?\"",
         "answer": "The difference between `return` and `yield` is that `return` immediately exits the function and returns a value, while `yield` pauses the function and returns a value, allowing the function to be resumed later.",
-        "latency_sec": 1.58,
+        "latency_sec": 1.61,
         "status": "PASS"
       },
       {
@@ -646,14 +646,14 @@
         "in_doc": false,
         "search_query": "Who won the FIFA World Cup in 2022? Argentina",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.76,
+        "latency_sec": 0.77,
         "status": "PASS (Refused Safely)"
       },
       {
         "question": "What is the capital city of France?",
         "in_doc": false,
         "search_query": "What is the capital city of France?",
-        "answer": "Paris.",
+        "answer": "Paris",
         "latency_sec": 0.69,
         "status": "FAIL (Hallucinated)"
       },
@@ -662,7 +662,7 @@
         "in_doc": false,
         "search_query": "\"Quantum entanglement explained in physics\"",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.9,
+        "latency_sec": 0.84,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -670,7 +670,7 @@
         "in_doc": false,
         "search_query": "\"What is the current stock price of Apple? Related keywords: stock, price, Apple\"",
         "answer": "Not found in the notes.",
-        "latency_sec": 1.0,
+        "latency_sec": 1.2,
         "status": "PASS (Refused Safely)"
       },
       {
@@ -678,7 +678,7 @@
         "in_doc": false,
         "search_query": "\"How to bake a chocolate cake: Ingredients, preparation, and baking instructions.\"",
         "answer": "Not found in the notes.",
-        "latency_sec": 0.75,
+        "latency_sec": 0.83,
         "status": "PASS (Refused Safely)"
       }
     ]
