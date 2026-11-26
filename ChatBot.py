@@ -1,276 +1,295 @@
 import os
-import glob  # [ADDED - DAY 3] knowledge_base folder ki saari .txt files padhne ke liye
-import json
+import glob
 import time
-import numpy as np
-# [OLD - DAY 2] from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.document_loaders import TextLoader  # [ADDED - DAY 3] .txt files load karne ke liye
+from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import ChatOllama
-from langchain_core.documents import Document  # [ADDED - DAY 3] BM25 ke liye Document objects banane ke liye
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.retrievers import BM25Retriever  # [ADDED - DAY 3] Keyword-based BM25 retriever
-from sentence_transformers import CrossEncoder  # [ADDED - DAY 3] 2-stage Cross-Encoder reranker
+from langchain_community.retrievers import BM25Retriever
+from sentence_transformers import CrossEncoder
+import memory_manager as mm  # [DAY 4] SQLite Short-Term, Long-Term & User Profile Manager
 
-KB_DIR = "knowledge_base"  # [ADDED - DAY 3] Mental Wellness Knowledge Base folder
+KB_DIR = "knowledge_base"
 DB_DIR = "chroma_db"
-HISTORY_FILE = "chat_history.json"
-QA_MEMORY_FILE = "qa_memory.json"
+
+# Initialize SQLite Database & 3 Dummy Profiles (user_101, user_102, user_103)
+mm.init_db()
 
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")  # [ADDED - DAY 3] Cross-Encoder model load kiya
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 
-# --- 1. Knowledge Base Loader (Purane PDF Loader ki jagah) ---
-# [OLD - DAY 2] def load_pdf():
-# [OLD - DAY 2]     loader = PyPDFLoader("Function_Interview_ 5.pdf")
-# [OLD - DAY 2]     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-# [OLD - DAY 2]     return splitter.split_documents(loader.load())
-
-def load_kb_documents():  # [ADDED - DAY 3] 4 Mental Wellness .txt files ko category metadata ke saath load karta hai
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)  # [ADDED - DAY 3]
-    chunks = []  # [ADDED - DAY 3]
-    for path in glob.glob(os.path.join(KB_DIR, "*.txt")):  # [ADDED - DAY 3]
-        fname = os.path.basename(path)  # [ADDED - DAY 3]
-        category = fname.replace(".txt", "").replace("_", " ").title()  # [ADDED - DAY 3] e.g. Stress Management
-        loader = TextLoader(path, encoding="utf-8")  # [ADDED - DAY 3]
-        for doc in loader.load():  # [ADDED - DAY 3]
-            doc.page_content = " ".join(doc.page_content.split())  # [ADDED - DAY 3]
-            doc.metadata = {"source": fname, "category": category, "page": 0}  # [ADDED - DAY 3]
-            chunks.extend(splitter.split_documents([doc]))  # [ADDED - DAY 3]
-    return chunks  # [ADDED - DAY 3]
+# --- 1. Knowledge Base Loader (Day 3) ---
+def load_kb_documents():
+    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = []
+    for path in glob.glob(os.path.join(KB_DIR, "*.txt")):
+        fname = os.path.basename(path)
+        category = fname.replace(".txt", "").replace("_", " ").title()
+        loader = TextLoader(path, encoding="utf-8")
+        for doc in loader.load():
+            doc.page_content = " ".join(doc.page_content.split())
+            doc.metadata = {"source": fname, "category": category, "page": 0}
+            chunks.extend(splitter.split_documents([doc]))
+    return chunks
 
 
 vectorstore = Chroma(persist_directory=DB_DIR, embedding_function=embedding)
 if vectorstore._collection.count() == 0:
-    # [OLD - DAY 2] vectorstore.add_documents(load_pdf())
-    vectorstore.add_documents(load_kb_documents())  # [ADDED - DAY 3] Fresh DB mein Mental Wellness KB index kiya
+    vectorstore.add_documents(load_kb_documents())
 
 
-# --- 2. Persistent Chat History & Q&A Semantic Memory (Same as Day 2) ---
-def load_json(path, default):
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return default
-    return default
-
-
-def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-chat_history = load_json(HISTORY_FILE, [])
-if not isinstance(chat_history, list): # chack karta h chat history me list ya nhi 
-    chat_history = []
-
-qa_memory = load_json(QA_MEMORY_FILE, [])
-updated = False
-for item in qa_memory:
-    if "embedding" not in item:
-        item["embedding"] = embedding.embed_query(item["question"])
-        updated = True
-if updated:
-    save_json(QA_MEMORY_FILE, qa_memory)
-
-def search_qa_memory(query, threshold=0.82):
-    if not qa_memory:
-        return None
-    q_vec = np.array(embedding.embed_query(query))
-    best_score, best_ans = -1.0, None
-    for item in qa_memory:
-        m_vec = np.array(item["embedding"])
-        sim = float(np.dot(q_vec, m_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(m_vec) + 1e-9))
-        if sim > best_score:
-            best_score, best_ans = sim, item["answer"]
-    return best_ans if best_score >= threshold else None
-#
-
-def save_qa_memory(question, answer):
-    qa_memory.append({
-        "question": question,
-        "answer": answer,
-        "embedding": embedding.embed_query(question),
-    })
-    save_json(QA_MEMORY_FILE, qa_memory)
-
-
-# --- 3. LLM & Prompts ---
-llm = ChatOllama(model="qwen2.5:3b", temperature=0.1, top_p=0.9, num_predict=450)
-selected_category = "All Categories"  # [ADDED - DAY 3] Context-aware metadata filter ke liye default value
+# --- 2. LLM & Prompts (Day 3 + Day 4) ---
+llm = ChatOllama(
+    model="qwen2.5:3b",
+    temperature=0.25,
+    top_p=0.9,
+    repeat_penalty=1.25,  # Repetition loop rokne ke liye
+    num_predict=220,      # Fast & concise output ke liye
+)
+selected_category = "All Categories"
 
 rewrite_prompt = ChatPromptTemplate.from_template(
     "Rewrite the Question into a clear standalone search query using Chat History so pronouns like 'it' or 'that' are resolved. "
     "Return ONLY the standalone query on one line.\n\nChat History:\n{chat_history}\n\nQuestion: {question}\nStandalone Query:"
 )
 
+summary_prompt = ChatPromptTemplate.from_template(
+    "Summarize the user's key concerns, shared facts, and emotional context in 2-3 concise English sentences. "
+    "Do NOT invent details.\n\nPrevious Summary: {old_summary}\nRecent Chat:\n{recent_chat}\n\nUpdated Summary:"
+)
+
 qa_prompt = ChatPromptTemplate.from_template(
-    "You are a supportive AI Mental Wellness Educational Assistant.\n"  # [ADDED - DAY 3]
-    "Rules:\n"
-    "1. For greetings, introductions, or questions about the user's own details (name, age, etc.), answer warmly in 1 sentence using Chat History ONLY—never say 'Not found in the knowledge base' for personal chat.\n"  # [ADDED - DAY 3]
-    "2. For mental wellness questions, answer strictly using Context in 3-4 concise bullet points (under 120 words). Only if a wellness topic is missing from Context, reply: 'Not found in the knowledge base.'\n"
-    "3. SAFETY RULE: Provide ONLY educational mental wellness tips from Context. NEVER give medical diagnoses or prescriptions. Suggest a licensed doctor for severe distress.\n\n"  # [ADDED - DAY 3]
-    "Chat History:\n{chat_history}\n\n"
-    "Context:\n{context}\n\n"
+    "You are Humaeli, a warm and supportive AI Mental Wellness Educational Assistant.\n"
+    "USER PROFILE:\n"
+    "- Name: {user_name} ({age_group})\n"
+    "- Preferred Language: {preferred_language}\n"
+    "- Communication Style: {communication_style}\n"
+    "- Interests: {interests}\n"
+    "- Past Concerns: {past_concerns}\n"
+    "- Conversation Summary: {conversation_summary}\n\n"
+    "RETRIEVED LONG-TERM MEMORIES (Cross-Session):\n{lt_memories}\n\n"
+    "SHORT-TERM SESSION HISTORY:\n{chat_history}\n\n"
+    "KNOWLEDGE BASE CONTEXT:\n{context}\n\n"
+    "LANGUAGE INSTRUCTION (STRICT):\n"
+    "- If Preferred Language is 'Hinglish', write strictly using ONLY ASCII English letters (A-Z, a-z, 0-9) in friendly conversational style like: 'Rohan, exam ka stress normal hai. Aap ye 3 simple tips follow karein:'. NEVER use Hindi Devanagari letters.\n"
+    "- If Preferred Language is 'English', reply strictly in clear English.\n\n"
+    "RULES:\n"
+    "1. For greetings, introductions, or questions about user profile/memories, reply warmly using User Profile, Memories, and Chat History—never say 'Not found in the knowledge base.'\n"
+    "2. If the user asks about past feelings or why they were stressed, directly state the exact reason from RETRIEVED LONG-TERM MEMORIES first, then give 3 short bullet points from Knowledge Base Context.\n"
+    "3. For mental wellness questions, answer strictly using Knowledge Base Context in 3-4 concise bullet points (under 80 words total). Only if an unrelated factual/medical topic is completely missing from Context, reply: 'Not found in the knowledge base.'\n"
+    "4. SAFETY RULE: Provide educational wellness tips only. Never diagnose or prescribe medication.\n\n"
     "Question: {question}\n"
     "Answer:"
 )
 
-##
-# --- 4. Main Chat Loop ---
+
+# --- 3. Helper Functions for Day 4 Memory & Auto-Summarization ---
+def maybe_summarize(user_id, session_id, profile):
+    msgs = mm.get_session_messages(user_id, session_id)
+    if len(msgs) >= 8 and len(msgs) % 4 == 0:
+        recent_text = "\n".join(f"{m['role']}: {m['content']}" for m in msgs[-8:])
+        new_sum = (summary_prompt | llm | StrOutputParser()).invoke(
+            {"old_summary": profile["conversation_summary"], "recent_chat": recent_text}
+        ).strip()
+        mm.update_summary(user_id, new_sum)
+        print("📝 [Auto-Summary Updated]")
+
+
+def extract_and_store_fact(user_id, question, profile):
+    if not profile["memory_enabled"]:
+        return
+    personal_markers = (
+        "my name", "i am", "i'm", "i feel", "i have", "my exam", "my work",
+        "mera naam", "mujhe", "main ", "i like", "i prefer", "stress about", "trouble sleeping"
+    )
+    if any(m in question.lower() for m in personal_markers) and len(question.split()) >= 3:
+        mm.save_long_term_memory(user_id, f"User shared: {question.strip()}", embedding)
+
+
+# --- 4. User Selection & Terminal Commands ---
+users = mm.get_all_users()
+print("\n=== 🧠 Humaeli Terminal Chatbot (Day 3 Hybrid RAG + Day 4 Memory & Personalization) ===")
+print("Available Users:")
+for u in users:
+    print(f"  - {u['user_id']} ({u['name']})")
+
+current_user_id = input("Enter User ID (default user_101): ").strip() or "user_101"
+if not mm.get_profile(current_user_id):
+    print("⚠️ Invalid User ID, defaulting to user_101")
+    current_user_id = "user_101"
+
+current_session_id = "session_1"
+profile = mm.get_profile(current_user_id)
+print(f"\n✅ Logged in as: {profile['name']} | Lang: {profile['preferred_language']} | Memory: {'ON' if profile['memory_enabled'] else 'OFF'}")
+print("Commands: /user <id> | /session <name> | /memories | /delmem <id> | /mem on|off | /clear | /cat <name> | exit\n")
+
+
+# --- 5. Main Chat Loop ---
 while True:
-    user_q = input("You: ").strip()
+    user_q = input(f"[{current_user_id} | {current_session_id}] You: ").strip()
     if not user_q:
         continue
     if user_q.lower() in ("exit", "quit"):
         break
 
-    # [ADDED - DAY 3] Category filter command (e.g. /cat Stress Management ya /cat all)
-    if user_q.startswith("/cat "):  # [ADDED - DAY 3]
-        val = user_q.split(" ", 1)[1].strip()  # [ADDED - DAY 3]
-        selected_category = "All Categories" if val.lower() == "all" else val  # [ADDED - DAY 3]
-        print(f"⚙️ Category Filter: {selected_category}\n")  # [ADDED - DAY 3]
-        continue  # [ADDED - DAY 3]
-
-    t0 = time.time()
-
-    # Check Q&A Embedding Memory first (Same as Day 2)
-    cached_ans = search_qa_memory(user_q)
-    if cached_ans:
-        print(f"⚡ [Memory] AI: {cached_ans}\n⏱️ ({round(time.time() - t0, 2)}s)\n")
-        chat_history.extend([f"User: {user_q}", f"Assistant: {cached_ans}"])
-        save_json(HISTORY_FILE, chat_history)
+    # [DAY 3] Category Metadata Filter
+    if user_q.startswith("/cat "):
+        val = user_q.split(" ", 1)[1].strip()
+        selected_category = "All Categories" if val.lower() == "all" else val
+        print(f"⚙️ Category Filter: {selected_category}\n")
         continue
 
-    # [OLD] hist_text = "\n".join(chat_history[-6:]) if chat_history else "None"
-    # [ADDED - MEMORY FIX] Recent chat history + Q&A Embedding Memory se top-3 relevant past Q&A nikalo
-    recent_hist = chat_history[-6:]  # [ADDED - MEMORY FIX]
-    mem_hits = []  # [ADDED - MEMORY FIX]
-    if len(qa_memory) > 0:
-        new_vec = embedding.embed_query(user_q)
-        scored_mem = []
+    # [DAY 4] Switch User Profile (Strict User Isolation)
+    if user_q.startswith("/user "):
+        uid = user_q.split(" ", 1)[1].strip()
+        if mm.get_profile(uid):
+            current_user_id = uid
+            current_session_id = "session_1"
+            profile = mm.get_profile(current_user_id)
+            print(f"👤 Switched to {profile['name']} ({profile['preferred_language']}) | Session: {current_session_id}\n")
+        else:
+            print("❌ User not found. Use user_101, user_102, or user_103.\n")
+        continue
 
-        # 1. Har purane Q&A par loop chalao aur similarity score nikalo
-        for item in qa_memory:
-            old_vec = item["embedding"]
+    # [DAY 4] Switch or Create Separate Session
+    if user_q.startswith("/session "):
+        current_session_id = user_q.split(" ", 1)[1].strip()
+        print(f"💬 Active Session: {current_session_id}\n")
+        continue
 
-            dot_product = 0
-            new_len = 0
-            old_len = 0
+    # [DAY 4] View Saved Long-Term Memories
+    if user_q == "/memories":
+        mems = mm.get_all_memories(current_user_id)
+        if not mems:
+            print("🧠 No long-term memories saved yet.\n")
+        else:
+            print("🧠 Saved Long-Term Memories:")
+            for m in mems:
+                print(f"  [{m['id']}] {m['fact']} ({m['created_at']})")
+            print()
+        continue
 
-            for i in range(len(new_vec)):
-                dot_product = dot_product + (new_vec[i] * old_vec[i])
-                new_len = new_len + (new_vec[i] * new_vec[i])
-                old_len = old_len + (old_vec[i] * old_vec[i])
+    # [DAY 4] Delete Individual Memory by ID
+    if user_q.startswith("/delmem "):
+        try:
+            mid = int(user_q.split(" ", 1)[1].strip())
+            mm.delete_memory_by_id(current_user_id, mid)
+            print(f"🗑️ Deleted memory ID {mid} (if it belonged to {current_user_id}).\n")
+        except ValueError:
+            print("❌ Please provide a valid numeric ID, e.g., /delmem 1\n")
+        continue
 
-            sim = dot_product / ((new_len ** 0.5) * (old_len ** 0.5) + 1e-9)
+    # [DAY 4] Enable / Disable Long-Term Memory
+    if user_q.startswith("/mem "):
+        state = user_q.split(" ", 1)[1].strip().lower()
+        enabled = 1 if state == "on" else 0
+        p = mm.get_profile(current_user_id)
+        mm.update_profile(
+            current_user_id, p["age_group"], p["preferred_language"],
+            p["interests"], p["communication_style"], p["past_concerns"], enabled
+        )
+        print(f"🔒 Long-Term Memory is now {'ON' if enabled else 'OFF'}.\n")
+        continue
 
-            # 2. Agar 35% (0.35) ya usse zyada match hai to list mein daalo
-            if sim >= 0.35:
-                past_text = "Past User: " + item["question"] + "\nPast Assistant: " + item["answer"]
-                scored_mem.append((sim, past_text))
+    # [DAY 4] Clear Current Session Chat History
+    if user_q == "/clear":
+        mm.clear_session_history(current_user_id, current_session_id)
+        print(f"🧹 Cleared chat history for {current_user_id} -> {current_session_id}\n")
+        continue
 
-        # 3. Sabse bade score ko upar lane ke liye sort karo
-        scored_mem.sort(reverse=True)
+    t0 = time.time()
+    profile = mm.get_profile(current_user_id)
 
-        # 4. Top-3 items mein se sirf text nikalo (simple loop se)
-        mem_hits = []
-        top_three = scored_mem[:3]
-        for score, txt in top_three:
-            mem_hits.append(txt)
+    # [DAY 4] Short-Term Session History (last 6 messages)
+    session_msgs = mm.get_session_messages(current_user_id, current_session_id)
+    hist_text = "\n".join(f"{m['role']}: {m['content']}" for m in session_msgs[-6:]) if session_msgs else "None"
 
-    # 5. Purani yaadein aur abhi ke last 3 turns ko jodo
-    all_history = mem_hits + recent_hist
-    if len(all_history) > 0:
-        hist_text = "\n".join(all_history)
+    # [DAY 4] Long-Term Cross-Session Memory Retrieval (Cosine Similarity >= 0.28)
+    lt_memories = mm.search_long_term_memories(current_user_id, user_q, embedding, min_score=0.28, top_k=3)
+    lt_mem_text = "\n".join(f"- {m}" for m in lt_memories) if lt_memories else "None"
+
+    # [DAY 3 + DAY 4] Context-Aware Query Rewriting for Follow-Up Questions
+    follow_up_words = ("it", "its", "that", "this", "they", "them", "those", "more", "explain", "kaise", "kya")
+    is_followup = any(w in user_q.lower().split() for w in follow_up_words)
+    if is_followup and (session_msgs or lt_memories):
+        combined_hist = f"Memories:\n{lt_mem_text}\nRecent Chat:\n{hist_text}"
+        search_query = (rewrite_prompt | llm | StrOutputParser()).invoke(
+            {"chat_history": combined_hist, "question": user_q}
+        ).strip()
     else:
-        hist_text = "None"
-        
-    # Sirf pronoun aane par hi history se query rewrite karo  # [ADDED - DAY 3]
-    follow_up_words = ("it", "its", "that", "this", "they", "them", "those", "more", "explain")  # [ADDED - DAY 3]
-    is_followup = any(w in user_q.lower().split() for w in follow_up_words)  # [ADDED - DAY 3]
-    if is_followup and chat_history:  # [ADDED - DAY 3]
-        search_query = (rewrite_prompt | llm | StrOutputParser()).invoke({"chat_history": hist_text, "question": user_q}).strip()
-    else:  # [ADDED - DAY 3]
-        search_query = user_q  # [ADDED - DAY 3]
+        search_query = user_q
 
-    # [OLD - DAY 2] results = vectorstore.similarity_search_with_score(search_query, k=4)
-    # [OLD - DAY 2] relevant_docs = [doc for doc, score in results if score <= 1.5]
+    # --- [DAY 3] Step 1: Hybrid Search (BM25 + Semantic RRF) + Metadata Filter ---
+    raw = vectorstore.get()
+    all_docs = [
+        Document(page_content=t, metadata=m)
+        for t, m in zip(raw["documents"], raw["metadatas"])
+        if selected_category == "All Categories" or m.get("category") == selected_category
+    ]
 
-    # --- [ADDED - DAY 3] Step 1: Hybrid Search (BM25 Keyword + Semantic Vector) + Metadata Filter ---
-    raw = vectorstore.get()  # [ADDED - DAY 3] ChromaDB se saare chunks nikale
-    all_docs = [  # [ADDED - DAY 3]
-        Document(page_content=t, metadata=m)  # [ADDED - DAY 3]
-        for t, m in zip(raw["documents"], raw["metadatas"])  # [ADDED - DAY 3]
-        if selected_category == "All Categories" or m.get("category") == selected_category  # [ADDED - DAY 3]
-    ]  # [ADDED - DAY 3]
+    bm25_ret = BM25Retriever.from_documents(all_docs)
+    bm25_ret.k = 8
+    search_kwargs = {"k": 8}
+    if selected_category != "All Categories":
+        search_kwargs["filter"] = {"category": selected_category}
+    vec_ret = vectorstore.as_retriever(search_kwargs=search_kwargs)
 
-    bm25_ret = BM25Retriever.from_documents(all_docs)  # [ADDED - DAY 3] BM25 keyword retriever
-    bm25_ret.k = 8  # [ADDED - DAY 3]
-    search_kwargs = {"k": 8}  # [ADDED - DAY 3]
-    if selected_category != "All Categories":  # [ADDED - DAY 3]
-        search_kwargs["filter"] = {"category": selected_category}  # [ADDED - DAY 3] Metadata filtering
-    vec_ret = vectorstore.as_retriever(search_kwargs=search_kwargs)  # [ADDED - DAY 3] Semantic retriever
+    bm25_docs = bm25_ret.invoke(search_query)
+    vec_docs = vec_ret.invoke(search_query)
 
-    bm25_docs = bm25_ret.invoke(search_query)  # [ADDED - DAY 3]
-    vec_docs = vec_ret.invoke(search_query)  # [ADDED - DAY 3]
+    scores_map, doc_map = {}, {}
+    for rank, d in enumerate(bm25_docs):
+        doc_map[d.page_content] = d
+        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.4 / (rank + 60)
+    for rank, d in enumerate(vec_docs):
+        doc_map[d.page_content] = d
+        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.6 / (rank + 60)
+    candidate_docs = [doc_map[k] for k, _ in sorted(scores_map.items(), key=lambda x: x[1], reverse=True)][:8]
 
-    # Weighted Reciprocal Rank Fusion (40% BM25 + 60% Semantic)  # [ADDED - DAY 3]
-    scores_map, doc_map = {}, {}  # [ADDED - DAY 3]
-    for rank, d in enumerate(bm25_docs):  # [ADDED - DAY 3]
-        doc_map[d.page_content] = d  # [ADDED - DAY 3]
-        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.4 / (rank + 60)  # [ADDED - DAY 3]
-    for rank, d in enumerate(vec_docs):  # [ADDED - DAY 3]
-        doc_map[d.page_content] = d  # [ADDED - DAY 3]
-        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.6 / (rank + 60)  # [ADDED - DAY 3]
-    candidate_docs = [doc_map[k] for k, _ in sorted(scores_map.items(), key=lambda x: x[1], reverse=True)][:8]  # [ADDED - DAY 3]
+    # --- [DAY 3] Step 2: Cross-Encoder Reranking (Top-8 -> Top-3) ---
+    pairs = [[search_query, d.page_content] for d in candidate_docs]
+    rerank_scores = reranker.predict(pairs)
+    ranked = sorted(zip(rerank_scores, candidate_docs), key=lambda x: x[0], reverse=True)
+    relevant_docs = [doc for _, doc in ranked[:3]]
 
-    # --- [ADDED - DAY 3] Step 2: Cross-Encoder Reranking (Top-8 se Top-3 best chunks) ---
-    pairs = [[search_query, d.page_content] for d in candidate_docs]  # [ADDED - DAY 3]
-    rerank_scores = reranker.predict(pairs)  # [ADDED - DAY 3] Har chunk ko query ke saath score diya
-    ranked = sorted(zip(rerank_scores, candidate_docs), key=lambda x: x[0], reverse=True)  # [ADDED - DAY 3]
-    relevant_docs = [doc for _, doc in ranked[:3]]  # [ADDED - DAY 3] Top-3 best chunks LLM ko bheje
+    personal_triggers = ("hi", "hello", "hey", "my name", "my age", "who am i", "what is my")
+    if any(user_q.lower().startswith(p) for p in personal_triggers):
+        context = "Personal greeting/introduction. Reply warmly using User Profile, Memories, and Chat History."
+    else:
+        context = "\n\n".join(f"[{d.metadata.get('category')}] {d.page_content}" for d in relevant_docs) if relevant_docs else "No matching notes found."
 
-    # [ADDED - DAY 3] Personal chat / intro detect karo taaki 'Not found in KB' na bole
-    # [OLD] personal_triggers = ("hi", "hello", "hey", "my name", "my age", "who am i", "what is my")
-
-    personal_triggers = ("hi", "hello", "hey", "my name", "my age", "who am i", "what is my", "and age", "and name")  # [ADDED - MEMORY FIX]
-    if any(user_q.lower().startswith(p) for p in personal_triggers):  # [ADDED - DAY 3]
-        context = "Personal greeting/introduction. Reply warmly in 1 sentence using Chat History only."  # [ADDED - DAY 3]
-    else:  # [ADDED - DAY 3]
-        context = "\n\n".join(f"[{d.metadata.get('category')}] {d.page_content}" for d in relevant_docs) if relevant_docs else "No matching notes found."  # [ADDED - DAY 3]
-
-    print(f"🔍 Search Query: {search_query}")
+    print(f"🔍 Search Query: {search_query} | 🧠 Memories Used: {len(lt_memories)}")
     print(f"📄 Sources: {[d.metadata.get('source') for d in relevant_docs]}")
-    print("AI: ", end="", flush=True)
+    print("Humaeli: ", end="", flush=True)
 
-    # [ADDED - DAY 3] Personal chat ho toh seedha chat prompt use karo (taaki 'Not found in KB' rule na chale)
-    if any(user_q.lower().startswith(p) for p in personal_triggers):  # [ADDED - DAY 3]
-        chat_only_prompt = ChatPromptTemplate.from_template(  # [ADDED - DAY 3]
-            "You are a friendly assistant. Reply warmly in 1 short sentence using Chat History.\nChat History:\n{chat_history}\nUser: {question}\nAssistant:"  # [ADDED - DAY 3]
-        )  # [ADDED - DAY 3]
-        chain = chat_only_prompt | llm | StrOutputParser()  # [ADDED - DAY 3]
-    else:  # [ADDED - DAY 3]
-        chain = qa_prompt | llm | StrOutputParser()  # [ADDED - DAY 3]
-
-
+    chain = qa_prompt | llm | StrOutputParser()
     full_ans = []
-    for chunk in chain.stream({"chat_history": hist_text, "context": context, "question": user_q}):
+    for chunk in chain.stream({
+        "user_name": profile["name"],
+        "age_group": profile["age_group"],
+        "preferred_language": profile["preferred_language"],
+        "communication_style": profile["communication_style"],
+        "interests": profile["interests"],
+        "past_concerns": profile["past_concerns"],
+        "conversation_summary": profile["conversation_summary"],
+        "lt_memories": lt_mem_text,
+        "chat_history": hist_text,
+        "context": context,
+        "question": user_q,
+    }):
         print(chunk, end="", flush=True)
         full_ans.append(chunk)
 
     ans_text = "".join(full_ans).strip()
     print(f"\n⏱️ ({round(time.time() - t0, 2)}s)\n")
 
-    # Save to both Chat History JSON & Q&A Embedding Memory JSON (Same as Day 2)
-    chat_history.extend([f"User: {user_q}", f"Assistant: {ans_text}"])
-    save_json(HISTORY_FILE, chat_history)
-    # [OLD] if "Not found in the knowledge base" not in ans_text and not any(user_q.lower().startswith(p) for p in personal_triggers):
-    if "Not found in the knowledge base" not in ans_text:  # [ADDED - MEMORY FIX] Personal facts (name/age) bhi embedding memory mein save honge
-        save_qa_memory(user_q, ans_text)
+    # Save Short-Term Messages, Extract Long-Term Fact & Trigger Auto-Summarization
+    mm.add_message(current_user_id, current_session_id, "user", user_q)
+    mm.add_message(current_user_id, current_session_id, "assistant", ans_text)
+    extract_and_store_fact(current_user_id, user_q, profile)
+    maybe_summarize(current_user_id, current_session_id, profile)

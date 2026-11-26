@@ -1,55 +1,33 @@
-# 🧠 Mental Wellness Educational AI Assistant (Advanced RAG)
+# 🧠 Humaeli — Personalized Mental Wellness AI Assistant (RAG + Memory System)
 
-An end-to-end **Retrieval-Augmented Generation (RAG)** chatbot built with **Python, LangChain, ChromaDB, BM25, HuggingFace Cross-Encoder, Ollama (`qwen2.5:3b`), and Streamlit**. Designed as a grounded retrieval foundation for an AI Mental Wellness Educational Assistant.
-
----
-
-## 🏗️ Retrieval & Generation Architecture
-
-1. **Knowledge Base & Metadata Indexing (`knowledge_base/`):**
-   - Loads educational `.txt` and `.pdf` documents (`stress_management.txt`, `anxiety_awareness.txt`, `mindfulness_sleep.txt`, `emotional_wellbeing.txt`) using `RecursiveCharacterTextSplitter` (`chunk_size=500`, `chunk_overlap=50`).
-   - Attaches structured metadata (`source`, `category`, `page`) to every chunk inside **ChromaDB**.
-2. **Context-Aware Memory & Query Rewriting:**
-   - Combines sliding short-term conversation turns (`chat_history`) with cosine-similarity retrieved Q&A memory (`qa_memory.json`).
-   - Resolves follow-up pronouns (`it`, `that`, `more`) into standalone search queries before retrieval.
-3. **Hybrid Search (BM25 + Semantic Vector RRF):**
-   - **BM25 Retriever (`weight = 0.4`):** Captures exact domain keywords (e.g., `4-4-4-4`, `4-7-8`, `5-4-3-2-1`).
-   - **Chroma Semantic Retriever (`weight = 0.6`):** Captures conceptual meaning using `sentence-transformers/all-MiniLM-L6-v2` with metadata `category` filtering.
-   - Fuses candidates via **Weighted Reciprocal Rank Fusion (RRF)** into Top-8 candidate chunks.
-4. **2-Stage Cross-Encoder Reranking:**
-   - Scores `(query, chunk)` pairs jointly using `cross-encoder/ms-marco-MiniLM-L-6-v2` and passes only the **Top-3 highest-relevance chunks** to `qwen2.5:3b` via Ollama.
-5. **Grounded Safety Guardrails:**
-   - Strictly answers from retrieved context and refuses medical diagnoses or ungrounded claims (`"Not found in the knowledge base."`).
+An end-to-end **Context-Aware & Personalized AI Mental Wellness Educational Assistant** built with **Python, LangChain, ChromaDB, BM25, HuggingFace Cross-Encoder, SQLite, Ollama (`qwen2.5:3b`), and Streamlit**.
 
 ---
 
-## 📊 4-Way Retrieval Evaluation Report (20 Test Cases)
+## 🚀 Key Features
 
-| Pipeline Mode | Retrieval Relevance | Answer Accuracy | Avg Response Time |
-| :--- | :---: | :---: | :---: |
-| **Basic RAG** (Semantic `k=3`) | 95.0% (19/20) | 85.0% (17/20) | 2.03s |
-| **Advanced RAG** (Rewrite + Semantic `k=3`) | 95.0% (19/20) | 85.0% (17/20) | 2.39s |
-| **Hybrid Search** (BM25 + Semantic RRF) | **100.0% (20/20)** | 80.0% (16/20) | **1.92s** |
-| **Hybrid + Cross-Encoder Rerank (Day 3)** | **95.0% (19/20)** | **95.0% (19/20)** | 2.22s |
+### 1. Hybrid Retrieval & 2-Stage Reranking (Day 3)
+- **Categorized Knowledge Base (`knowledge_base/`):** Indexes mental wellness guides (`stress_management.txt`, `anxiety_awareness.txt`, `mindfulness_sleep.txt`, `emotional_wellbeing.txt`) in **ChromaDB** with `source` and `category` metadata, plus live PDF/TXT upload support.
+- **Hybrid Search (Weighted RRF):** Combines **BM25 Keyword Retrieval (0.4)** and **Semantic Vector Search (0.6)** via Reciprocal Rank Fusion into Top-8 candidate chunks.
+- **Cross-Encoder Reranking:** Re-scores `(query, chunk)` pairs using `cross-encoder/ms-marco-MiniLM-L-6-v2` and selects the Top-3 chunks for generation.
 
-### Key Observations & Improvements
-- **Hybrid Search Achieved 100% Recall (20/20):** Combining BM25 keyword matching with Semantic embeddings retrieved the relevant document for every query, though raw RRF without reranking occasionally ranked secondary chunks above the exact answer passage (80.0% answer accuracy).
-- **Cross-Encoder Reranking Boosted Answer Accuracy to 95.0% (19/20):** Re-scoring the Top-8 hybrid candidates with `ms-marco-MiniLM-L-6-v2` eliminated noisy chunks and promoted the exact answer passage to Rank 1 with minimal latency overhead (`2.22s`).
-- **Hallucination Prevention:** On out-of-context queries (e.g., *"How many hours of sleep do adults need?"*), the assistant safely returned `"Not found in the knowledge base."` instead of fabricating numbers.
+### 2. Structured Memory, Multi-User Profiles & Privacy Controls (Day 4)
+- **User Profiles & Account Creation (`user_profiles` table):** Supports creating new user accounts (`Create New User` in UI) and editing `age_group`, `preferred_language` (`Hinglish` / `English` / `Hindi`), `interests`, `communication_style`, `past_concerns`, and `conversation_summary`.
+- **Short-Term Session Memory (`chat_messages` table):** Maintains strictly isolated chat histories per `(user_id, session_id)` and resolves follow-up pronouns (`it`, `that`, `more`).
+- **Automatic Conversation Summarization:** Automatically condenses conversations of 8+ turns into the active user's profile summary.
+- **Long-Term Cross-Session Memory (`long_term_memories` table):** Extracts user-shared facts with dense embeddings (`all-MiniLM-L6-v2`) and recalls relevant memories across new sessions via cosine similarity (`score >= 0.28`) with deduplication.
+- **User Privacy Controls:** View saved memories, delete individual memories by ID, clear session history, toggle long-term memory ON/OFF, and enforce strict `user_id` data isolation.
 
 ---
 
-## 🚀 How to Run Locally
+## 📂 Project Structure
 
-```bash
-# 1. Pull local LLM via Ollama
-ollama pull qwen2.5:3b
-
-# 2. Run Terminal Chatbot (supports /cat <Category> metadata filter)
-python ChatBot.py
-
-# 3. Run Streamlit Web UI
-streamlit run app.py
-
-# 4. Run 20-Query 4-Way Evaluation Benchmark
-python evaluate_rag.py
+```text
+Document-Based AI/
+├── app.py                  # Streamlit Web UI (Profiles, Create User, Memory Panel & Hybrid RAG)
+├── ChatBot.py              # Terminal CLI Chatbot (/user, /session, /memories, /delmem, /mem on|off)
+├── memory_manager.py       # SQLite Backend (user_profiles, chat_messages, long_term_memories)
+├── eveluate_mammory.py     # 20-Scenario Automated Evaluation Suite for Memory & Personalization
+├── evaluate_rag.py         # 4-Way Retrieval Benchmark Script
+├── knowledge_base/         # Mental Wellness Educational .txt Documents
+└── requirements.txt        # Python Dependencies

@@ -4,3 +4,4 @@ __pycache__/
 chat_history.json
 .DS_Store
 Untitled.ipynb
+humaeli_memory.db

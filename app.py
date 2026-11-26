@@ -1,5 +1,4 @@
-import glob  # [ADDED - DAY 3] knowledge_base folder ki .txt files padhne ke liye
-import json
+import glob
 import os
 import time
 import tempfile
@@ -12,16 +11,18 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-from langchain_community.retrievers import BM25Retriever  # [ADDED - DAY 3] Keyword BM25 retriever
-from sentence_transformers import CrossEncoder  # [ADDED - DAY 3] Cross-Encoder reranker
+from langchain_community.retrievers import BM25Retriever
+from sentence_transformers import CrossEncoder
+import memory_manager as mm  # [DAY 4] SQLite Short-Term, Long-Term & User Profile Manager
 
-st.set_page_config(page_title="Mental Wellness AI Assistant", page_icon="🧠", layout="wide")  # [ADDED - DAY 3]
-st.title("🧠 Mental Wellness Educational AI Assistant (Advanced RAG)")  # [ADDED - DAY 3]
+st.set_page_config(page_title="Humaeli — Personalized Mental Wellness AI", page_icon="🧠", layout="wide")
+st.title("🧠 Humaeli — Personalized Mental Wellness AI Assistant")
 
-KB_DIR = "knowledge_base"  # [ADDED - DAY 3]
+KB_DIR = "knowledge_base"
 DB_DIR = "chroma_db"
-QA_MEMORY_FILE = "qa_memory.json"
-HISTORY_FILE = "chat_history.json"
+
+# Initialize SQLite Database & 3 Dummy Profiles (user_101, user_102, user_103)
+mm.init_db()
 
 
 @st.cache_resource
@@ -29,9 +30,9 @@ def load_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
-@st.cache_resource  # [ADDED - DAY 3] Cross-Encoder ko ek baar cache mein load karne ke liye
-def load_reranker():  # [ADDED - DAY 3]
-    return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")  # [ADDED - DAY 3]
+@st.cache_resource
+def load_reranker():
+    return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 
 def get_llm(model_name, temperature, top_p, max_tokens):
@@ -39,15 +40,17 @@ def get_llm(model_name, temperature, top_p, max_tokens):
         model=model_name,
         temperature=temperature,
         top_p=top_p,
+        repeat_penalty=1.25,  # Repetition loop rokne ke liye
         num_predict=max_tokens,
     )
 
 
 embedding = load_embeddings()
-reranker = load_reranker()  # [ADDED - DAY 3]
+reranker = load_reranker()
 
 
-def load_kb_documents():  # [ADDED - DAY 3] 4 Mental Wellness .txt files ko category metadata ke saath load karta hai
+# --- 1. Knowledge Base Loader (Day 3) ---
+def load_kb_documents():
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = []
     for path in glob.glob(os.path.join(KB_DIR, "*.txt")):
@@ -63,7 +66,7 @@ def load_kb_documents():  # [ADDED - DAY 3] 4 Mental Wellness .txt files ko cate
 
 def get_vectorstore():
     vs = Chroma(persist_directory=DB_DIR, embedding_function=embedding)
-    if vs._collection.count() == 0:  # [ADDED - DAY 3] Fresh DB mein Mental Wellness KB index karo
+    if vs._collection.count() == 0:
         kb_docs = load_kb_documents()
         if kb_docs:
             vs.add_documents(kb_docs)
@@ -72,338 +75,315 @@ def get_vectorstore():
 
 vectorstore = get_vectorstore()
 
-
-def save_to_qa_memory(question, answer):
-    qa_data = []
-    if os.path.exists(QA_MEMORY_FILE) and os.path.getsize(QA_MEMORY_FILE) > 0:
-        with open(QA_MEMORY_FILE, "r", encoding="utf-8") as f:
-            qa_data = json.load(f)
-
-    if not any(item["question"].lower() == question.lower() for item in qa_data):
-        qa_data.append({
-            "question": question,
-            "answer": answer,
-            "embedding": embedding.embed_query(question),  # [ADDED - DAY 3] Terminal bot compatibility ke liye embedding bhi save
-        })
-        with open(QA_MEMORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(qa_data, f, indent=2, ensure_ascii=False)
-
-
-def load_sessions():
-    if os.path.exists(HISTORY_FILE) and os.path.getsize(HISTORY_FILE) > 0:
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, dict):  # [ADDED - DAY 3] Agar terminal bot ne list save ki ho toh crash se bachne ke liye
-                return data
-    return {"session_1": []}
-
-
-def save_sessions(sessions_data):
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(sessions_data, f, indent=2, ensure_ascii=False)
-
-
-if "sessions" not in st.session_state:
-    st.session_state.sessions = load_sessions()
-if "current_session" not in st.session_state:
-    st.session_state.current_session = "session_1"
-
+# --- 2. Sidebar: User Profile, Create New User, Privacy Controls & Sessions ---
+users_list = mm.get_all_users()
+user_options = {f"{u['user_id']} — {u['name']}": u["user_id"] for u in users_list}
 
 with st.sidebar:
-    st.header("🤖 LLM Settings")
-    selected_model = st.selectbox("Model", ["qwen2.5:3b", "llama3.2:latest", "qwen2.5:1.5b"])  # [ADDED - DAY 3] qwen2.5:3b default
-    temperature = st.slider("Temperature", 0.0, 1.0, 0.1, step=0.1)
-    top_p = st.slider("Top-P", 0.1, 1.0, 0.9, step=0.1)
-    max_tokens = st.slider("Max Tokens", 128, 1024, 450, step=64)
-    st.divider()
+    st.header("👤 User Profile & Privacy")
+    selected_label = st.selectbox("Select User Account", list(user_options.keys()), key="select_user_box")
+    current_user_id = user_options[selected_label]
+    profile = mm.get_profile(current_user_id)
 
-    st.header("⚙️ RAG & Category Filter")  # [ADDED - DAY 3]
-    rag_mode = st.radio(
-        "RAG Pipeline",
-        ["Hybrid + Rerank (Day 3)", "Semantic Only (Basic)"],  # [ADDED - DAY 3]
-        horizontal=True,
-    )
-    # [ADDED - DAY 3] ChromaDB se dynamic categories nikalkar Metadata Filter dropdown banao
-    raw_meta = vectorstore.get().get("metadatas", [])
-    available_cats = sorted({m.get("category") for m in raw_meta if m and m.get("category")})
-    selected_category = st.selectbox("Category Metadata Filter", ["All Categories"] + available_cats)  # [ADDED - DAY 3]
+    # Create New User Account Form (Unique keys used to avoid DuplicateElementId)
+    with st.expander("➕ Create New User", expanded=False):
+        new_uid = st.text_input("New User ID", placeholder="e.g. user_104", key="new_uid")
+        new_name = st.text_input("Full Name", placeholder="e.g. Adarsh Patidar", key="new_name")
+        new_age = st.text_input("Age Group", value="18-24 (College Student)", key="new_age")
+        new_lang = st.selectbox("Language", ["Hinglish", "English", "Hindi"], key="new_lang")
+        new_interests = st.text_input("Interests", placeholder="e.g. Coding, Cricket, Music", key="new_interests")
+        new_style = st.text_input("Communication Style", value="Warm, concise bullet points", key="new_style")
+        new_concerns = st.text_input("Initial Concerns", placeholder="e.g. Project deadline stress", key="new_concerns")
+        new_mem = st.toggle("Enable Memory", value=True, key="new_mem")
 
-    top_k = st.slider("Final Top-K Chunks", 2, 6, 3)  # [ADDED - DAY 3]
-    task_mode = st.selectbox("Task Mode", ["Question Answering", "Summarization", "Document Explanation"])
-    length_mode = st.radio("Response Length", ["Short", "Medium", "Detailed"], horizontal=True)
+        if st.button("Create User Account", use_container_width=True, key="btn_create_user"):
+            if not new_uid.strip() or not new_name.strip():
+                st.error("⚠️ User ID aur Full Name dono zaroori hain.")
+            elif mm.create_user(new_uid, new_name, new_age, new_lang, new_interests, new_style, new_concerns, new_mem):
+                st.success(f"✅ User '{new_name}' ({new_uid}) ban gaya!")
+                st.rerun()
+            else:
+                st.error("❌ Yeh User ID pehle se exist karta hai, koi doosra ID daalein.")
 
-    st.divider()
+    # User switch hone par session reset karo taaki privacy isolation bana rahe
+    if st.session_state.get("active_user") != current_user_id:
+        st.session_state.active_user = current_user_id
+        user_sessions = mm.get_user_sessions(current_user_id)
+        st.session_state.current_session = user_sessions[0]
 
-    st.header("📂 Upload Documents")
-    uploaded_files = st.file_uploader(
-        "Upload PDF ya TXT files", type=["pdf", "txt"], accept_multiple_files=True
-    )
+    # Edit Existing User Profile & Memory Toggle (Unique keys used)
+    with st.expander("📝 Edit Profile & Preferences", expanded=False):
+        age_grp = st.text_input("Age Group", value=profile["age_group"], key="edit_age")
+        lang_choices = ["Hinglish", "English", "Hindi"]
+        lang_idx = lang_choices.index(profile["preferred_language"]) if profile["preferred_language"] in lang_choices else 0
+        pref_lang = st.selectbox("Preferred Language", lang_choices, index=lang_idx, key="edit_lang")
+        interests = st.text_input("Interests", value=profile["interests"], key="edit_interests")
+        comm_style = st.text_input("Communication Style", value=profile["communication_style"], key="edit_style")
+        past_concerns = st.text_input("Previously Discussed Concerns", value=profile["past_concerns"], key="edit_concerns")
+        mem_toggle = st.toggle("Enable Long-Term Memory", value=bool(profile["memory_enabled"]), key="edit_mem")
 
-    chunk_size = st.slider("Chunk Size", 200, 1000, 500, step=100)
-    chunk_overlap = st.slider("Chunk Overlap", 0, 200, 50, step=25)
-
-    if st.button("Process & Add Documents", use_container_width=True) and uploaded_files:
-        with st.spinner("Documents process ho rahe hain..."):
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        if st.button("Save Profile Settings", use_container_width=True, key="btn_save_profile"):
+            mm.update_profile(
+                current_user_id, age_grp, pref_lang, interests, comm_style, past_concerns, mem_toggle
             )
-            new_chunks = []
-            for file in uploaded_files:
-                if file.size == 0:
-                    st.warning(f"⚠️ '{file.name}' empty file hai, skip kar diya gaya.")
-                    continue
+            st.success("✅ Profile & memory preference saved!")
+            st.rerun()
 
-                suffix = os.path.splitext(file.name)[1].lower()
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                        tmp.write(file.read())
-                        tmp_path = tmp.name
+    st.caption(
+        f"**Lang:** `{profile['preferred_language']}` | **Memory:** `{'ON' if profile['memory_enabled'] else 'OFF'}`"
+    )
+    st.info(f"**Conversation Summary:** {profile['conversation_summary']}")
 
-                    if suffix == ".pdf":
-                        loader = PyPDFLoader(tmp_path)
-                    elif suffix == ".txt":
-                        loader = TextLoader(tmp_path, encoding="utf-8")
-                    else:
-                        st.error(f"❌ Unsupported file format: {file.name}")
-                        os.remove(tmp_path)
-                        continue
-
-                    docs = loader.load()
-                    os.remove(tmp_path)
-
-                    cat_name = os.path.splitext(file.name)[0].replace("_", " ").title()  # [ADDED - DAY 3]
-                    valid_docs = []
-                    for doc in docs:
-                        cleaned = " ".join(doc.page_content.split())
-                        if cleaned:
-                            doc.page_content = cleaned
-                            doc.metadata["source"] = file.name
-                            doc.metadata["category"] = cat_name  # [ADDED - DAY 3]
-                            valid_docs.append(doc)
-
-                    if not valid_docs:
-                        st.warning(f"⚠️ '{file.name}' mein koi readable text nahi mila.")
-                        continue
-
-                    new_chunks.extend(splitter.split_documents(valid_docs))
-                except Exception as e:
-                    st.error(f"❌ '{file.name}' process karne mein error: {e}")
-
-            if new_chunks:
-                vectorstore.add_documents(new_chunks)
-                st.success(f"✅ {len(new_chunks)} chunks ChromaDB mein add ho gaye!")
+    # View & Delete Individual Long-Term Memories
+    with st.expander("🧠 Saved Long-Term Memories", expanded=True):
+        saved_mems = mm.get_all_memories(current_user_id)
+        if not saved_mems:
+            st.caption("No long-term memories saved for this user yet.")
+        else:
+            for m in saved_mems:
+                col1, col2 = st.columns([4, 1])
+                col1.markdown(f"- {m['fact']} *({m['created_at']})*")
+                if col2.button("🗑️", key=f"del_{current_user_id}_{m['id']}", help="Delete memory"):
+                    mm.delete_memory_by_id(current_user_id, m["id"])
+                    st.rerun()
 
     st.divider()
-    st.header("💬 Chat Sessions")
-    session_list = list(st.session_state.sessions.keys())
+    st.header("💬 User Sessions")
+    user_sessions = mm.get_user_sessions(current_user_id)
+    if st.session_state.current_session not in user_sessions:
+        user_sessions.append(st.session_state.current_session)
+
     selected_session = st.selectbox(
         "Active Session",
-        session_list,
-        index=session_list.index(st.session_state.current_session),
+        user_sessions,
+        index=user_sessions.index(st.session_state.current_session),
+        key="select_session_box",
     )
     st.session_state.current_session = selected_session
 
-    new_session_name = st.text_input("New Session Name", placeholder="e.g. session_2")
-    if st.button("Create Session", use_container_width=True) and new_session_name.strip():
-        name = new_session_name.strip()
-        st.session_state.sessions.setdefault(name, [])
-        st.session_state.current_session = name
-        save_sessions(st.session_state.sessions)
+    new_session_name = st.text_input("New Session Name", placeholder="e.g. session_2", key="new_session_input")
+    if st.button("Create Session", use_container_width=True, key="btn_create_session") and new_session_name.strip():
+        st.session_state.current_session = new_session_name.strip()
         st.rerun()
 
-    if st.button("Clear Current Chat", use_container_width=True):
-        st.session_state.sessions[st.session_state.current_session] = []
-        save_sessions(st.session_state.sessions)
+    if st.button("Clear Current Session Chat", use_container_width=True, key="btn_clear_chat"):
+        mm.clear_session_history(current_user_id, st.session_state.current_session)
         st.rerun()
+
+    st.divider()
+    st.header("⚙️ RAG & LLM Settings")
+    selected_model = st.selectbox("Model", ["qwen2.5:3b", "llama3.2:latest", "qwen2.5:1.5b"], key="model_box")
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.25, step=0.05, key="temp_slider")
+    top_p = st.slider("Top-P", 0.1, 1.0, 0.9, step=0.1, key="top_p_slider")
+    max_tokens = st.slider("Max Tokens", 128, 512, 220, step=32, key="max_tokens_slider")
+
+    raw_meta = vectorstore.get().get("metadatas", [])
+    available_cats = sorted({m.get("category") for m in raw_meta if m and m.get("category")})
+    selected_category = st.selectbox("Category Filter", ["All Categories"] + available_cats, key="cat_box")
+    top_k = st.slider("Top-K Chunks", 2, 6, 3, key="topk_slider")
+
+    st.divider()
+    st.header("📂 Upload Documents")
+    uploaded_files = st.file_uploader("Upload PDF ya TXT", type=["pdf", "txt"], accept_multiple_files=True, key="file_up")
+    if st.button("Process & Add", use_container_width=True, key="btn_upload") and uploaded_files:
+        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+        new_chunks = []
+        for file in uploaded_files:
+            if file.size == 0:
+                continue
+            suffix = os.path.splitext(file.name)[1].lower()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(file.read())
+                tmp_path = tmp.name
+            loader = PyPDFLoader(tmp_path) if suffix == ".pdf" else TextLoader(tmp_path, encoding="utf-8")
+            docs = loader.load()
+            os.remove(tmp_path)
+            cat_name = os.path.splitext(file.name)[0].replace("_", " ").title()
+            for doc in docs:
+                cleaned = " ".join(doc.page_content.split())
+                if cleaned:
+                    doc.page_content = cleaned
+                    doc.metadata["source"] = file.name
+                    doc.metadata["category"] = cat_name
+                    new_chunks.extend(splitter.split_documents([doc]))
+        if new_chunks:
+            vectorstore.add_documents(new_chunks)
+            st.success(f"✅ {len(new_chunks)} chunks added!")
 
 
 llm = get_llm(selected_model, temperature, top_p, max_tokens)
 
+# --- 3. Prompts ---
 rewrite_prompt = ChatPromptTemplate.from_template(
     "Rewrite the Question into a clear standalone search query using Chat History so pronouns like 'it' or 'that' are resolved. "
-    "Return ONLY the standalone query on one line.\n\n"
-    "Chat History:\n{chat_history}\n\n"
+    "Return ONLY the standalone query on one line.\n\nChat History:\n{chat_history}\n\nQuestion: {question}\nStandalone Query:"
+)
+
+summary_prompt = ChatPromptTemplate.from_template(
+    "Summarize the user's key concerns, shared facts, and emotional context in 2-3 concise English sentences. "
+    "Do NOT invent details.\n\nPrevious Summary: {old_summary}\nRecent Chat:\n{recent_chat}\n\nUpdated Summary:"
+)
+
+qa_prompt = ChatPromptTemplate.from_template(
+    "You are Humaeli, a warm and supportive AI Mental Wellness Educational Assistant.\n"
+    "USER PROFILE:\n"
+    "- Name: {user_name}\n"
+    "- Age Group: {age_group}\n"
+    "- Preferred Language: {preferred_language}\n"
+    "- Communication Style: {communication_style}\n"
+    "- Interests: {interests}\n"
+    "- Past Concerns: {past_concerns}\n"
+    "- Conversation Summary: {conversation_summary}\n\n"
+    "RETRIEVED LONG-TERM MEMORIES (Cross-Session):\n{lt_memories}\n\n"
+    "SHORT-TERM SESSION HISTORY:\n{chat_history}\n\n"
+    "KNOWLEDGE BASE CONTEXT:\n{context}\n\n"
+    "LANGUAGE INSTRUCTION (STRICT):\n"
+    "- If Preferred Language is 'Hinglish', write strictly using ONLY ASCII English letters (A-Z, a-z, 0-9) in friendly conversational style like: 'Rohan, exam ka stress normal hai. Aap ye 3 simple tips follow karein:'. NEVER use Hindi Devanagari letters.\n"
+    "- If Preferred Language is 'English', reply strictly in clear English.\n\n"
+    "RULES:\n"
+    "1. For greetings, introductions, or questions about user profile/memories, reply warmly using ONLY exact facts from User Profile, Memories, and Chat History—NEVER guess an exact age or number not explicitly written in Profile. Never say 'Not found in the knowledge base.'\n"
+    "2. If the user asks about past feelings or why they were stressed, directly state the exact reason from RETRIEVED LONG-TERM MEMORIES first, then give 3 short bullet points from Knowledge Base Context.\n"
+    "3. For mental wellness questions, answer strictly using Knowledge Base Context in 3-4 concise bullet points (under 80 words total). Only if an unrelated factual/medical topic is completely missing from Context, reply: 'Not found in the knowledge base.'\n"
+    "4. SAFETY RULE: Provide educational wellness tips only. Never diagnose or prescribe medication.\n\n"
     "Question: {question}\n"
-    "Standalone Query:"
+    "Answer:"
 )
 
-# [ADDED - DAY 3] Mental Wellness Safety & Grounding Rules
-SAFETY_RULE = (
-    "SAFETY RULE: Provide ONLY educational mental wellness tips strictly from Context. "
-    "NEVER give medical diagnoses or prescriptions. Suggest a licensed doctor for severe distress."
-)
 
-TASK_PROMPTS = {
-    "Question Answering": (
-        "1. First, check Chat History for user's own details (name, age, etc.). If found, answer warmly.\n"
-        "2. For mental wellness questions, answer strictly using only the provided Context.\n"
-        "3. ONLY if a wellness topic is missing from Context, reply: 'Not found in the knowledge base.'\n"
-        f"4. {SAFETY_RULE}"
-    ),
-    "Summarization": (
-        "Summarize the retrieved Context into clear, accurate key points using ONLY the provided text. "
-        f"If Context has no relevant notes, reply: 'Not found in the knowledge base.' {SAFETY_RULE}"
-    ),
-    "Document Explanation": (
-        "Explain the concepts found in the retrieved Context in simple, clear terms strictly from the text. "
-        f"If Context has no relevant notes, reply: 'Not found in the knowledge base.' {SAFETY_RULE}"
-    ),
-}
-
-LENGTH_RULES = {
-    "Short": "Keep your reply strictly short (1-2 sentences).",
-    "Medium": "Provide a balanced answer in 3-4 concise bullet points (under 120 words).",
-    "Detailed": "Provide a thorough, detailed explanation using structured bullet points.",
-}
+# --- 4. Helper Functions for Auto-Summarization & Fact Extraction ---
+def maybe_summarize(user_id, session_id, profile):
+    msgs = mm.get_session_messages(user_id, session_id)
+    if len(msgs) >= 8 and len(msgs) % 4 == 0:
+        recent_text = "\n".join(f"{m['role']}: {m['content']}" for m in msgs[-8:])
+        new_sum = (summary_prompt | llm | StrOutputParser()).invoke(
+            {"old_summary": profile["conversation_summary"], "recent_chat": recent_text}
+        ).strip()
+        mm.update_summary(user_id, new_sum)
+        st.toast("📝 Conversation Summary Auto-Updated!")
 
 
-def format_history(session_id):
-    history = st.session_state.sessions.get(session_id, [])[-10:]
-    if not history:
-        return "No previous conversation."
-    return "\n".join(f"{m['role']}: {m['content']}" for m in history)
-
-
-def ask_stream(question, session_id):
-    sessions = st.session_state.sessions
-    text = question.lower().strip()
-    greetings = ("hi", "hello", "hey", "namaste", "good morning", "good evening")
-
-    if text in greetings:
-        answer = "Hello! I am your Mental Wellness Educational Assistant. How can I help you today?"
-        st.markdown(answer)
-        sessions[session_id].extend([
-            {"role": "user", "content": question},
-            {"role": "assistant", "content": answer}
-        ])
-        save_sessions(sessions)
+def extract_and_store_fact(user_id, question, profile):
+    if not profile["memory_enabled"]:
         return
+    personal_markers = (
+        "my name", "i am", "i'm", "i feel", "i have", "my exam", "my work",
+        "mera naam", "mujhe", "main ", "i like", "i prefer", "stress about", "trouble sleeping"
+    )
+    if any(m in question.lower() for m in personal_markers) and len(question.split()) >= 3:
+        mm.save_long_term_memory(user_id, f"User shared: {question.strip()}", embedding)
 
-    try:
-        start_time = time.time()
-        chat_history = format_history(session_id)
 
-        # [ADDED - DAY 3] Sirf follow-up pronoun aane par hi query rewrite karo (fast & accurate)
-        follow_up_words = ("it", "its", "that", "this", "they", "them", "those", "more", "explain")
-        is_followup = any(w in text.split() for w in follow_up_words)
-        if is_followup and len(sessions.get(session_id, [])) > 0:
-            search_query = (rewrite_prompt | llm | StrOutputParser()).invoke(
-                {"chat_history": chat_history, "question": question}
-            ).strip()
-            st.caption(f"🔎 **Rewritten Query:** `{search_query}`")
-        else:
-            search_query = question
+# --- 5. Main Chat Stream Pipeline ---
+def ask_stream(question, user_id, session_id):
+    profile = mm.get_profile(user_id)
+    session_msgs = mm.get_session_messages(user_id, session_id)
+    hist_text = "\n".join(f"{m['role']}: {m['content']}" for m in session_msgs[-6:]) if session_msgs else "None"
 
-        # --- [ADDED - DAY 3] Retrieval Pipeline ---
-        if rag_mode == "Hybrid + Rerank (Day 3)":
-            # Step 1: Hybrid Search (BM25 + Semantic RRF) + Metadata Filter
-            raw = vectorstore.get()
-            all_docs = []
-            for i in range(len(raw["documents"])):
-                t = raw["documents"][i]
-                m = raw["metadatas"][i]
-                if selected_category == "All Categories" or m.get("category") == selected_category:
-                    all_docs.append(Document(page_content=t, metadata=m))
+    start_time = time.time()
 
-            bm25_ret = BM25Retriever.from_documents(all_docs)
-            bm25_ret.k = 8
+    # Cross-Session Long-Term Memory Retrieval (Cosine Similarity >= 0.28)
+    lt_memories = mm.search_long_term_memories(user_id, question, embedding, min_score=0.28, top_k=3)
+    lt_mem_text = "\n".join(f"- {m}" for m in lt_memories) if lt_memories else "None"
 
-            search_kwargs = {"k": 8}
-            if selected_category != "All Categories":
-                search_kwargs["filter"] = {"category": selected_category}
-            vec_ret = vectorstore.as_retriever(search_kwargs=search_kwargs)
+    # Follow-Up Query Rewriting
+    follow_up_words = ("it", "its", "that", "this", "they", "them", "those", "more", "explain", "kaise", "kya")
+    is_followup = any(w in question.lower().split() for w in follow_up_words)
+    if is_followup and (session_msgs or lt_memories):
+        combined_hist = f"Memories:\n{lt_mem_text}\nRecent Chat:\n{hist_text}"
+        search_query = (rewrite_prompt | llm | StrOutputParser()).invoke(
+            {"chat_history": combined_hist, "question": question}
+        ).strip()
+        st.caption(f"🔎 **Rewritten Query:** `{search_query}`")
+    else:
+        search_query = question
 
-            bm25_docs = bm25_ret.invoke(search_query)
-            vec_docs = vec_ret.invoke(search_query)
+    # Step 1: Hybrid Search (BM25 + Semantic RRF) + Metadata Filter
+    raw = vectorstore.get()
+    all_docs = [
+        Document(page_content=t, metadata=m)
+        for t, m in zip(raw["documents"], raw["metadatas"])
+        if selected_category == "All Categories" or m.get("category") == selected_category
+    ]
 
-            # Weighted Reciprocal Rank Fusion (40% BM25 + 60% Semantic)
-            scores_map, doc_map = {}, {}
-            for rank, d in enumerate(bm25_docs):
-                doc_map[d.page_content] = d
-                scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.4 / (rank + 60)
-            for rank, d in enumerate(vec_docs):
-                doc_map[d.page_content] = d
-                scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.6 / (rank + 60)
+    bm25_ret = BM25Retriever.from_documents(all_docs)
+    bm25_ret.k = 8
+    search_kwargs = {"k": 8}
+    if selected_category != "All Categories":
+        search_kwargs["filter"] = {"category": selected_category}
+    vec_ret = vectorstore.as_retriever(search_kwargs=search_kwargs)
 
-            candidate_docs = [
-                doc_map[k] for k, _ in sorted(scores_map.items(), key=lambda x: x[1], reverse=True)
-            ][:8]
+    bm25_docs = bm25_ret.invoke(search_query)
+    vec_docs = vec_ret.invoke(search_query)
 
-            # Step 2: Cross-Encoder Reranking (Top-8 -> Top-K)
-            if candidate_docs:
-                pairs = [[search_query, d.page_content] for d in candidate_docs]
-                rerank_scores = reranker.predict(pairs)
-                ranked = sorted(zip(rerank_scores, candidate_docs), key=lambda x: x[0], reverse=True)
-                relevant_docs = [doc for _, doc in ranked[:top_k]]
-            else:
-                relevant_docs = []
-        else:
-            # Semantic Only (Basic) with optional Metadata Filter
-            search_kwargs = {"k": top_k}
-            if selected_category != "All Categories":
-                search_kwargs["filter"] = {"category": selected_category}
-            results = vectorstore.similarity_search_with_score(search_query, **search_kwargs)
-            relevant_docs = [doc for doc, score in results if score <= 1.5]
+    scores_map, doc_map = {}, {}
+    for rank, d in enumerate(bm25_docs):
+        doc_map[d.page_content] = d
+        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.4 / (rank + 60)
+    for rank, d in enumerate(vec_docs):
+        doc_map[d.page_content] = d
+        scores_map[d.page_content] = scores_map.get(d.page_content, 0.0) + 0.6 / (rank + 60)
+    candidate_docs = [doc_map[k] for k, _ in sorted(scores_map.items(), key=lambda x: x[1], reverse=True)][:8]
 
-        # [ADDED - DAY 3] Personal chat (name/age) detect karo taaki 'Not found' na bole
-        personal_triggers = ("my name", "my age", "who am i", "what is my", "and age", "and name", "my brother")
-        if any(text.startswith(p) for p in personal_triggers):
-            context = "Personal user info shared or asked. Reply warmly in 1 sentence using Chat History only."
-        else:
-            context = (
-                "\n\n".join(f"[{d.metadata.get('category', 'General')}] {d.page_content}" for d in relevant_docs)
-                if relevant_docs
-                else "No matching notes found."
-            )
+    # Step 2: Cross-Encoder Reranking (Top-8 -> Top-3)
+    if candidate_docs:
+        pairs = [[search_query, d.page_content] for d in candidate_docs]
+        rerank_scores = reranker.predict(pairs)
+        ranked = sorted(zip(rerank_scores, candidate_docs), key=lambda x: x[0], reverse=True)
+        relevant_docs = [doc for _, doc in ranked[:top_k]]
+    else:
+        relevant_docs = []
 
-        dynamic_prompt = ChatPromptTemplate.from_template(
-            f"You are a supportive AI Mental Wellness Educational Assistant. Follow these rules strictly:\n{TASK_PROMPTS[task_mode]}\n"
-            f"{LENGTH_RULES[length_mode]}\n\n"
-            "Chat History:\n{chat_history}\n\n"
-            "Context:\n{context}\n\n"
-            "User Request: {question}\n"
-            "Assistant:"
+    personal_triggers = ("hi", "hello", "hey", "my name", "my age", "who am i", "what is my")
+    if any(question.lower().startswith(p) for p in personal_triggers):
+        context = "Personal greeting/introduction. Reply warmly using User Profile, Memories, and Chat History."
+    else:
+        context = (
+            "\n\n".join(f"[{d.metadata.get('category')}] {d.page_content}" for d in relevant_docs)
+            if relevant_docs
+            else "No matching notes found."
         )
 
-        chain = dynamic_prompt | llm | StrOutputParser()
+    chain = qa_prompt | llm | StrOutputParser()
+    answer = st.write_stream(
+        chain.stream({
+            "user_name": profile["name"],
+            "age_group": profile["age_group"],
+            "preferred_language": profile["preferred_language"],
+            "communication_style": profile["communication_style"],
+            "interests": profile["interests"],
+            "past_concerns": profile["past_concerns"],
+            "conversation_summary": profile["conversation_summary"],
+            "lt_memories": lt_mem_text,
+            "chat_history": hist_text,
+            "context": context,
+            "question": question,
+        })
+    ).strip()
 
-        answer = st.write_stream(
-            chain.stream({"chat_history": chat_history, "context": context, "question": question})
-        ).strip()
+    elapsed = round(time.time() - start_time, 2)
+    sources_list = sorted({f"`{d.metadata.get('source', 'Unknown')}`" for d in relevant_docs})
+    source_str = ", ".join(sources_list) if sources_list else "`Memory/Profile`"
+    footer = (
+        f"\n\n👤 `{profile['name']}` (`{profile['preferred_language']}`) | "
+        f"🧠 Memories Used: `{len(lt_memories)}` | 📚 {source_str} | ⚡ `{elapsed}s`"
+    )
+    st.markdown(footer)
 
-        elapsed = round(time.time() - start_time, 2)
-
-        if "not found in the knowledge base" in answer.lower():
-            footer = f"\n\n⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}` | Filter: `{selected_category}`"
-        else:
-            save_to_qa_memory(question, answer)
-            if relevant_docs and not any(text.startswith(p) for p in personal_triggers):
-                sources_list = sorted({f"`{d.metadata.get('source', 'Unknown')}`" for d in relevant_docs})
-                source_str = ", ".join(sources_list)
-            else:
-                source_str = "`Chat History`"
-            footer = f"\n\n📚 **Sources:** {source_str} | 🏷️ `{selected_category}` | ⚡ `{selected_model}` ({elapsed}s) | `{rag_mode}`"
-
-        st.markdown(footer)
-        output = answer + footer
-
-    except Exception as e:
-        output = f"⚠️ LLM/API Error: Please check if Ollama is running (`ollama serve`). Details: {e}"
-        st.error(output)
-
-    sessions[session_id].append({"role": "user", "content": question})
-    sessions[session_id].append({"role": "assistant", "content": output})
-    save_sessions(sessions)
+    # Save Short-Term Messages, Extract Long-Term Fact & Trigger Auto-Summarization
+    mm.add_message(user_id, session_id, "user", question)
+    mm.add_message(user_id, session_id, "assistant", answer + footer)
+    extract_and_store_fact(user_id, question, profile)
+    maybe_summarize(user_id, session_id, profile)
 
 
-current_id = st.session_state.current_session
-for msg in st.session_state.sessions.get(current_id, []):
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# Render Active User + Session Messages
+active_msgs = mm.get_session_messages(current_user_id, st.session_state.current_session)
+for m in active_msgs:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-if user_prompt := st.chat_input("Ask a question about Stress, Anxiety, Sleep, or Mindfulness..."):
+if user_prompt := st.chat_input("Chat with Humaeli (personalized to your profile & memory)..."):
     with st.chat_message("user"):
         st.markdown(user_prompt)
-
     with st.chat_message("assistant"):
-        ask_stream(user_prompt, current_id)
+        ask_stream(user_prompt, current_user_id, st.session_state.current_session)
